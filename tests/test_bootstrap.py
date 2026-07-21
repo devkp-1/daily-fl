@@ -14,10 +14,34 @@ class BootstrapTests(unittest.TestCase):
             client = app.test_client()
 
             response = client.get("/")
+            body = response.get_data(as_text=True)
 
             self.assertEqual(response.status_code, 200)
-            self.assertEqual(response.get_data(as_text=True), "Personal Productivity Loop")
+            self.assertIn("Personal Productivity Loop", body)
+            self.assertIn("Goal title:", body)
+            self.assertIn("Goal description:", body)
+            self.assertIn("Goal target date:", body)
+            self.assertIn("Goal status: active", body)
             self.assertTrue(db_path.exists())
+
+    def test_bootstrap_creates_default_goal_row(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            db_path = Path(tmp_dir) / "test_app.db"
+            create_app({"TESTING": True, "DATABASE": str(db_path)})
+
+            connection = sqlite3.connect(db_path)
+            try:
+                goal = connection.execute(
+                    "SELECT id, title, description, target_date, status FROM goal WHERE id = 1"
+                ).fetchone()
+                self.assertIsNotNone(goal)
+                self.assertEqual(goal[0], 1)
+                self.assertEqual(goal[1], "")
+                self.assertEqual(goal[2], "")
+                self.assertIsNone(goal[3])
+                self.assertEqual(goal[4], "active")
+            finally:
+                connection.close()
 
     def test_schema_bootstrap_creates_required_tables_and_constraints(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

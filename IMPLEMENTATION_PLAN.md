@@ -14,7 +14,7 @@ Assumptions (only where spec is still ambiguous outside explicit Decisions):
    - Scope: include `entry.date` UNIQUE, `entry.engagement` constrained to 1-5, `entry_tag` UNIQUE (`entry_id`, `tag`), FK cascade delete, and allowed preset tags.
    - Done looks like: schema init creates all 3 tables with constraints matching spec/review decisions.
 
-3. Add first-run default goal creation (single-row goal behavior).
+3. [x] Add first-run default goal creation (single-row goal behavior).
    - Scope: ensure goal row `id=1` auto-exists with empty/default values and is updated in place thereafter.
    - Done looks like: first dashboard load shows goal fields (even before manual edit) without setup flow.
 

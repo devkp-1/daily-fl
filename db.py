@@ -46,6 +46,13 @@ def ensure_database(database_path: str) -> None:
             );
             """
         )
+        connection.execute(
+            """
+            INSERT INTO goal (id, title, description, target_date, status, updated_at)
+            VALUES (1, '', '', NULL, 'active', CURRENT_TIMESTAMP)
+            ON CONFLICT (id) DO NOTHING
+            """
+        )
         connection.commit()
     finally:
         connection.close()
