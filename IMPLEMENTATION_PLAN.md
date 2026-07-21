@@ -10,7 +10,7 @@ Assumptions (only where spec is still ambiguous outside explicit Decisions):
    - Scope: create app entrypoint, DB helper, and startup wiring so app creates/opens `app.db` in repo root.
    - Done looks like: starting the app serves a basic response and creates `app.db` on first run.
 
-2. Implement schema creation for `goal`, `entry`, and `entry_tag` with required constraints.
+2. [x] Implement schema creation for `goal`, `entry`, and `entry_tag` with required constraints.
    - Scope: include `entry.date` UNIQUE, `entry.engagement` constrained to 1-5, `entry_tag` UNIQUE (`entry_id`, `tag`), FK cascade delete, and allowed preset tags.
    - Done looks like: schema init creates all 3 tables with constraints matching spec/review decisions.
 

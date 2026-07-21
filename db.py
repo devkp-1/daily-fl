@@ -9,5 +9,43 @@ def ensure_database(database_path: str) -> None:
     connection = sqlite3.connect(path)
     try:
         connection.execute("PRAGMA foreign_keys = ON")
+        connection.executescript(
+            """
+            CREATE TABLE IF NOT EXISTS goal (
+                id INTEGER PRIMARY KEY,
+                title TEXT NOT NULL DEFAULT '',
+                description TEXT NOT NULL DEFAULT '',
+                target_date TEXT,
+                status TEXT NOT NULL DEFAULT 'active'
+                    CHECK (status IN ('active', 'paused', 'completed')),
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS entry (
+                id INTEGER PRIMARY KEY,
+                date TEXT NOT NULL UNIQUE,
+                notes TEXT NOT NULL DEFAULT '',
+                reflection TEXT NOT NULL DEFAULT '',
+                engagement INTEGER NOT NULL CHECK (engagement BETWEEN 1 AND 5),
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS entry_tag (
+                entry_id INTEGER NOT NULL,
+                tag TEXT NOT NULL CHECK (
+                    tag IN (
+                        'focused',
+                        'distracted',
+                        'blocked',
+                        'low-energy',
+                        'breakthrough'
+                    )
+                ),
+                UNIQUE (entry_id, tag),
+                FOREIGN KEY (entry_id) REFERENCES entry (id) ON DELETE CASCADE
+            );
+            """
+        )
+        connection.commit()
     finally:
         connection.close()
