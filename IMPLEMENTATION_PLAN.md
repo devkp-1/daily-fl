@@ -1,12 +1,12 @@
 # Implementation Plan (Base System)
 
-Current state check: repository currently contains no Flask app code (`app.py`), no `templates/`, and no `tests/`, so all acceptance-criteria functionality remains to be implemented.
+Current state check: Flask skeleton (`app.py`), DB bootstrap helper (`db.py`), and an initial bootstrap test are now in place. Remaining acceptance-criteria functionality is listed below.
 
 Assumptions (only where spec is still ambiguous outside explicit Decisions):
 - Use `python app.py` as the single run command documented in `running.md` (keeps startup one command with no required env var export).
 - Heatmap cell interaction will use click-to-toggle a details panel (instead of tooltip) for reliable desktop behavior without external JS libraries.
 
-1. Initialize Flask app skeleton and SQLite connection/bootstrap.
+1. [x] Initialize Flask app skeleton and SQLite connection/bootstrap.
    - Scope: create app entrypoint, DB helper, and startup wiring so app creates/opens `app.db` in repo root.
    - Done looks like: starting the app serves a basic response and creates `app.db` on first run.
 
