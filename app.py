@@ -1,9 +1,9 @@
 from pathlib import Path
 import sqlite3
-from datetime import date
+from datetime import date, timedelta
 from html import escape
 
-from flask import Flask, redirect, request, url_for
+from flask import Flask, redirect, render_template, request, url_for
 
 from db import ensure_database
 
@@ -142,17 +142,62 @@ def create_app(test_config: dict | None = None) -> Flask:
         finally:
             connection.close()
 
+    def get_heatmap_columns() -> list[list[dict[str, str | int | bool]]]:
+        today = date.today()
+        last_90_start = today - timedelta(days=89)
+
+        # 13 columns x 7 rows, Monday-start, anchored to the week containing today.
+        current_week_monday = today - timedelta(days=today.weekday())
+        grid_start = current_week_monday - timedelta(weeks=12)
+        grid_end = grid_start + timedelta(days=90)
+
+        connection = sqlite3.connect(app.config["DATABASE"])
+        connection.row_factory = sqlite3.Row
+        try:
+            entry_rows = connection.execute(
+                """
+                SELECT date, engagement
+                FROM entry
+                WHERE date BETWEEN ? AND ?
+                """,
+                (grid_start.isoformat(), grid_end.isoformat()),
+            ).fetchall()
+        finally:
+            connection.close()
+
+        engagement_by_date = {str(row["date"]): int(row["engagement"]) for row in entry_rows}
+
+        columns: list[list[dict[str, str | int | bool]]] = []
+        for week_offset in range(13):
+            week_start = grid_start + timedelta(weeks=week_offset)
+            week_days: list[dict[str, str | int | bool]] = []
+            for day_offset in range(7):
+                day_value = week_start + timedelta(days=day_offset)
+                day_iso = day_value.isoformat()
+                in_last_90 = last_90_start <= day_value <= today
+                engagement = engagement_by_date.get(day_iso, 0) if in_last_90 else 0
+                week_days.append(
+                    {
+                        "date": day_iso,
+                        "engagement": engagement,
+                        "in_last_90": in_last_90,
+                        "is_today": day_value == today,
+                    }
+                )
+            columns.append(week_days)
+
+        return columns
+
     @app.get("/")
     def dashboard() -> str:
         goal = get_goal_row()
-        target_date = goal["target_date"] or ""
-        return (
-            "<h1>Personal Productivity Loop</h1>"
-            f"<p>Goal title: {escape(goal['title'] or '')}</p>"
-            f"<p>Goal description: {escape(goal['description'] or '')}</p>"
-            f"<p>Goal target date: {escape(target_date)}</p>"
-            f"<p>Goal status: {escape(goal['status'] or 'active')}</p>"
-            f'<p><a href="{url_for("edit_goal")}">Edit goal</a></p>'
+        return render_template(
+            "dashboard.html",
+            goal_title=goal["title"] or "",
+            goal_description=goal["description"] or "",
+            goal_target_date=goal["target_date"] or "",
+            goal_status=goal["status"] or "active",
+            heatmap_columns=get_heatmap_columns(),
         )
 
     @app.get("/goal/edit")

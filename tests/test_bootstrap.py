@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 import sqlite3
-from datetime import date
+from datetime import date, timedelta
 
 from app import create_app
 
@@ -23,7 +23,37 @@ class BootstrapTests(unittest.TestCase):
             self.assertIn("Goal description:", body)
             self.assertIn("Goal target date:", body)
             self.assertIn("Goal status: active", body)
+            self.assertIn('href="/entry/new"', body)
             self.assertTrue(db_path.exists())
+
+    def test_dashboard_renders_13x7_heatmap_with_engagement_intensity(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            db_path = Path(tmp_dir) / "test_app.db"
+            app = create_app({"TESTING": True, "DATABASE": str(db_path)})
+
+            connection = sqlite3.connect(db_path)
+            try:
+                connection.execute(
+                    "INSERT INTO entry (date, notes, reflection, engagement) VALUES (?, ?, ?, ?)",
+                    (date.today().isoformat(), "today note", "today reflection", 5),
+                )
+                connection.execute(
+                    "INSERT INTO entry (date, notes, reflection, engagement) VALUES (?, ?, ?, ?)",
+                    ((date.today() - timedelta(days=1)).isoformat(), "yesterday", "previous", 2),
+                )
+            finally:
+                connection.commit()
+                connection.close()
+
+            response = app.test_client().get("/")
+            body = response.get_data(as_text=True)
+
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(body.count('class="heatmap-column"'), 13)
+            self.assertEqual(body.count('class="heatmap-cell intensity-'), 91)
+            self.assertIn("intensity-5", body)
+            self.assertIn("intensity-2", body)
+            self.assertIn(f'data-date="{date.today().isoformat()}"', body)
 
     def test_bootstrap_creates_default_goal_row(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

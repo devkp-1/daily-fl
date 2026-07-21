@@ -3,14 +3,11 @@
 Completed in code: app bootstrap, schema + constraints, default goal row creation, and goal edit flow (`GET /goal/edit`, `POST /goal`) with validation, persistence, and tests.
 Completed in code this increment: today-entry creation flow (`GET /entry/new`, `POST /entry`) with engagement validation, preset-tag validation, tag persistence, and tests (including zero-tag submission).
 Completed in code this increment: duplicate-date handling now redirects to edit (`GET /entry/new` + duplicate `POST /entry`), plus entry edit flow (`GET /entry/<date>/edit`, `POST /entry/<date>`) with full field updates and tag replacement; tests cover duplicate behavior and edit updates.
+Completed in code this increment: dashboard (`GET /`) now renders goal summary + “Log today” link and a Monday-start 13-column heatmap grid with 0-5 intensity classes backed by entry engagement data.
 
 Assumptions (only where spec is still ambiguous outside explicit Decisions):
 - Use `python app.py` as the single run command documented in `running.md` (keeps startup one command with no required env var export).
 - Heatmap cell interaction will use click-to-toggle a details panel (instead of tooltip) for reliable desktop behavior without external JS libraries.
-
-3. Build dashboard (`GET /`) with goal summary, “Log today” link, and 90-day heatmap data model.
-   - Scope: generate Monday-start, 13-column window for last 90 days ending today; map no-entry to 0 and entries to engagement 1-5.
-   - Done looks like: dashboard renders full 90-day grid with correct empty/filled intensity classes.
 
 4. Add heatmap interaction to reveal day details (notes/reflection/tags) for filled cells.
    - Scope: server outputs per-day metadata; client-side JS toggles a details panel when clicking a filled cell.

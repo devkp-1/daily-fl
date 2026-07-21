@@ -1,0 +1,51 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 24px;
+}
+
+.heatmap {
+    display: flex;
+    gap: 4px;
+}
+
+.heatmap-column {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.heatmap-cell {
+    width: 14px;
+    height: 14px;
+    border-radius: 2px;
+    background: #ebedf0;
+}
+
+.intensity-1 {
+    background: #c6e48b;
+}
+
+.intensity-2 {
+    background: #7bc96f;
+}
+
+.intensity-3 {
+    background: #239a3b;
+}
+
+.intensity-4 {
+    background: #196127;
+}
+
+.intensity-5 {
+    background: #0f4d1e;
+}
+
+.heatmap-cell-outside {
+    opacity: 0.35;
+}
+
+.heatmap-cell-today {
+    outline: 1px solid #333;
+    outline-offset: 1px;
+}
