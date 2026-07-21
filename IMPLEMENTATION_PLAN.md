@@ -1,7 +1,6 @@
 # Implementation Plan (Base System)
 
-Completed this increment:
-- Heatmap day-details interaction now works on hover and keyboard focus in addition to click, matching the spec requirement for clicking/hovering filled days.
+Base-system scope is complete and currently has no unfinished implementation items.
 
 Remaining highest-priority items:
 - None.
