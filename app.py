@@ -114,8 +114,6 @@ def create_app(test_config: dict | None = None) -> Flask:
         # 13 columns x 7 rows, Monday-start, anchored to the week containing today.
         current_week_monday = today - timedelta(days=today.weekday())
         grid_start = current_week_monday - timedelta(weeks=12)
-        grid_end = grid_start + timedelta(days=90)
-
         connection = sqlite3.connect(app.config["DATABASE"])
         connection.row_factory = sqlite3.Row
         try:
@@ -125,7 +123,7 @@ def create_app(test_config: dict | None = None) -> Flask:
                 FROM entry
                 WHERE date BETWEEN ? AND ?
                 """,
-                (grid_start.isoformat(), grid_end.isoformat()),
+                (last_90_start.isoformat(), today.isoformat()),
             ).fetchall()
             tag_rows = connection.execute(
                 """
@@ -135,7 +133,7 @@ def create_app(test_config: dict | None = None) -> Flask:
                 WHERE e.date BETWEEN ? AND ?
                 ORDER BY et.tag
                 """,
-                (grid_start.isoformat(), grid_end.isoformat()),
+                (last_90_start.isoformat(), today.isoformat()),
             ).fetchall()
         finally:
             connection.close()

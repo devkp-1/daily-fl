@@ -3,6 +3,7 @@ import unittest
 from pathlib import Path
 import sqlite3
 from datetime import date, timedelta
+import re
 
 from app import create_app
 
@@ -91,6 +92,33 @@ class BootstrapTests(unittest.TestCase):
             self.assertIn('data-tags="blocked, focused"', body)
             self.assertIn('addEventListener("mouseenter"', body)
             self.assertIn('addEventListener("focus"', body)
+
+    def test_dashboard_ignores_future_entries_in_heatmap_cells(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            db_path = Path(tmp_dir) / "test_app.db"
+            app = create_app({"TESTING": True, "DATABASE": str(db_path)})
+
+            future_day = (date.today() + timedelta(days=1)).isoformat()
+            connection = sqlite3.connect(db_path)
+            try:
+                connection.execute(
+                    "INSERT INTO entry (date, notes, reflection, engagement) VALUES (?, ?, ?, ?)",
+                    (future_day, "future notes", "future reflection", 5),
+                )
+            finally:
+                connection.commit()
+                connection.close()
+
+            response = app.test_client().get("/")
+            body = response.get_data(as_text=True)
+
+            self.assertEqual(response.status_code, 200)
+            self.assertRegex(
+                body,
+                re.compile(
+                    rf'class="heatmap-cell intensity-0[^"]*"[\s\S]*?data-date="{future_day}"[\s\S]*?data-engagement="0"[\s\S]*?data-has-entry="0"',
+                ),
+            )
 
     def test_bootstrap_creates_default_goal_row(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
