@@ -268,6 +268,143 @@ class BootstrapTests(unittest.TestCase):
 
             self.assertEqual(tag_count, 0)
 
+    def test_get_new_entry_redirects_to_edit_when_today_entry_exists(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            db_path = Path(tmp_dir) / "test_app.db"
+            app = create_app({"TESTING": True, "DATABASE": str(db_path)})
+            client = app.test_client()
+
+            first = client.post(
+                "/entry",
+                data={
+                    "notes": "First log",
+                    "reflection": "Keep momentum",
+                    "engagement": "3",
+                    "tags": ["focused"],
+                },
+            )
+            self.assertEqual(first.status_code, 302)
+
+            response = client.get("/entry/new")
+            self.assertEqual(response.status_code, 302)
+            self.assertTrue(
+                response.headers["Location"].endswith(f"/entry/{date.today().isoformat()}/edit")
+            )
+
+    def test_post_entry_redirects_duplicate_to_edit_without_second_row(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            db_path = Path(tmp_dir) / "test_app.db"
+            app = create_app({"TESTING": True, "DATABASE": str(db_path)})
+            client = app.test_client()
+
+            first = client.post(
+                "/entry",
+                data={
+                    "notes": "Original entry",
+                    "reflection": "Initial reflection",
+                    "engagement": "4",
+                    "tags": ["focused", "breakthrough"],
+                },
+            )
+            self.assertEqual(first.status_code, 302)
+
+            duplicate = client.post(
+                "/entry",
+                data={
+                    "notes": "Attempted duplicate",
+                    "reflection": "Should not insert",
+                    "engagement": "2",
+                    "tags": ["blocked"],
+                },
+            )
+            self.assertEqual(duplicate.status_code, 302)
+            self.assertTrue(
+                duplicate.headers["Location"].endswith(f"/entry/{date.today().isoformat()}/edit")
+            )
+
+            connection = sqlite3.connect(db_path)
+            try:
+                count = connection.execute("SELECT COUNT(*) FROM entry").fetchone()[0]
+                original = connection.execute(
+                    "SELECT notes, reflection, engagement FROM entry WHERE date = ?",
+                    (date.today().isoformat(),),
+                ).fetchone()
+            finally:
+                connection.close()
+
+            self.assertEqual(count, 1)
+            self.assertEqual(original, ("Original entry", "Initial reflection", 4))
+
+    def test_get_edit_entry_page_renders_existing_today_entry(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            db_path = Path(tmp_dir) / "test_app.db"
+            app = create_app({"TESTING": True, "DATABASE": str(db_path)})
+            client = app.test_client()
+
+            client.post(
+                "/entry",
+                data={
+                    "notes": "Review day",
+                    "reflection": "Stayed aligned",
+                    "engagement": "5",
+                    "tags": ["breakthrough", "focused"],
+                },
+            )
+
+            response = client.get(f"/entry/{date.today().isoformat()}/edit")
+            body = response.get_data(as_text=True)
+
+            self.assertEqual(response.status_code, 200)
+            self.assertIn("<h1>Edit Today's Entry</h1>", body)
+            self.assertIn("Review day", body)
+            self.assertIn("Stayed aligned", body)
+            self.assertIn('value="5"', body)
+            self.assertIn('value="focused" checked', body)
+
+    def test_post_edit_entry_updates_fields_and_replaces_tags(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            db_path = Path(tmp_dir) / "test_app.db"
+            app = create_app({"TESTING": True, "DATABASE": str(db_path)})
+            client = app.test_client()
+
+            client.post(
+                "/entry",
+                data={
+                    "notes": "Initial",
+                    "reflection": "Initial reflection",
+                    "engagement": "2",
+                    "tags": ["focused", "distracted"],
+                },
+            )
+
+            response = client.post(
+                f"/entry/{date.today().isoformat()}",
+                data={
+                    "notes": "Updated note",
+                    "reflection": "Updated reflection",
+                    "engagement": "5",
+                    "tags": ["breakthrough"],
+                },
+            )
+            self.assertEqual(response.status_code, 302)
+            self.assertTrue(response.headers["Location"].endswith("/"))
+
+            connection = sqlite3.connect(db_path)
+            try:
+                entry = connection.execute(
+                    "SELECT id, notes, reflection, engagement FROM entry WHERE date = ?",
+                    (date.today().isoformat(),),
+                ).fetchone()
+                tags = connection.execute(
+                    "SELECT tag FROM entry_tag WHERE entry_id = ? ORDER BY tag",
+                    (entry[0],),
+                ).fetchall()
+            finally:
+                connection.close()
+
+            self.assertEqual(entry[1:], ("Updated note", "Updated reflection", 5))
+            self.assertEqual([row[0] for row in tags], ["breakthrough"])
+
 
 if __name__ == "__main__":
     unittest.main()

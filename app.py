@@ -30,6 +30,76 @@ def create_app(test_config: dict | None = None) -> Flask:
     def today_iso() -> str:
         return date.today().isoformat()
 
+    def get_entry_for_date(entry_date: str) -> dict[str, str | int | list[str]] | None:
+        connection = sqlite3.connect(app.config["DATABASE"])
+        connection.row_factory = sqlite3.Row
+        try:
+            entry_row = connection.execute(
+                """
+                SELECT id, date, notes, reflection, engagement
+                FROM entry
+                WHERE date = ?
+                """,
+                (entry_date,),
+            ).fetchone()
+            if entry_row is None:
+                return None
+
+            tag_rows = connection.execute(
+                """
+                SELECT tag
+                FROM entry_tag
+                WHERE entry_id = ?
+                ORDER BY tag
+                """,
+                (entry_row["id"],),
+            ).fetchall()
+        finally:
+            connection.close()
+
+        return {
+            "id": int(entry_row["id"]),
+            "date": str(entry_row["date"]),
+            "notes": str(entry_row["notes"]),
+            "reflection": str(entry_row["reflection"]),
+            "engagement": int(entry_row["engagement"]),
+            "tags": [str(row["tag"]) for row in tag_rows],
+        }
+
+    def render_entry_form(
+        *,
+        heading: str,
+        action: str,
+        entry_date: str,
+        notes: str,
+        reflection: str,
+        engagement: str,
+        selected_tags: set[str],
+    ) -> str:
+        tag_options = "".join(
+            (
+                f'<label><input type="checkbox" name="tags" value="{tag}"'
+                f'{" checked" if tag in selected_tags else ""}> '
+                f"{escape(tag)}</label><br>"
+            )
+            for tag in allowed_entry_tags
+        )
+        return (
+            f"<h1>{heading}</h1>"
+            f"<p>Date: {escape(entry_date)}</p>"
+            f'<form method="post" action="{escape(action)}">'
+            '<label for="notes">Notes</label><br>'
+            f'<textarea id="notes" name="notes">{escape(notes)}</textarea><br>'
+            '<label for="reflection">Reflection</label><br>'
+            f'<textarea id="reflection" name="reflection">{escape(reflection)}</textarea><br>'
+            '<label for="engagement">Engagement (1-5)</label><br>'
+            f'<input id="engagement" name="engagement" type="number" min="1" max="5" required value="{escape(engagement)}"><br>'
+            "<p>Tags</p>"
+            f"{tag_options}<br>"
+            '<button type="submit">Save entry</button>'
+            "</form>"
+        )
+
     def get_goal_row() -> dict[str, str | None]:
         connection = sqlite3.connect(app.config["DATABASE"])
         connection.row_factory = sqlite3.Row
@@ -142,31 +212,26 @@ def create_app(test_config: dict | None = None) -> Flask:
 
     @app.get("/entry/new")
     def new_entry() -> str:
-        tag_options = "".join(
-            (
-                f'<label><input type="checkbox" name="tags" value="{tag}"> '
-                f"{escape(tag)}</label><br>"
-            )
-            for tag in allowed_entry_tags
-        )
-        return (
-            "<h1>Log Today's Entry</h1>"
-            f"<p>Date: {escape(today_iso())}</p>"
-            '<form method="post" action="/entry">'
-            '<label for="notes">Notes</label><br>'
-            '<textarea id="notes" name="notes"></textarea><br>'
-            '<label for="reflection">Reflection</label><br>'
-            '<textarea id="reflection" name="reflection"></textarea><br>'
-            '<label for="engagement">Engagement (1-5)</label><br>'
-            '<input id="engagement" name="engagement" type="number" min="1" max="5" required><br>'
-            "<p>Tags</p>"
-            f"{tag_options}<br>"
-            '<button type="submit">Save entry</button>'
-            "</form>"
+        today = today_iso()
+        if get_entry_for_date(today) is not None:
+            return redirect(url_for("edit_entry", entry_date=today))
+
+        return render_entry_form(
+            heading="Log Today's Entry",
+            action=url_for("save_entry"),
+            entry_date=today,
+            notes="",
+            reflection="",
+            engagement="",
+            selected_tags=set(),
         )
 
     @app.post("/entry")
     def save_entry():
+        today = today_iso()
+        if get_entry_for_date(today) is not None:
+            return redirect(url_for("edit_entry", entry_date=today))
+
         notes = request.form.get("notes", "").strip()
         reflection = request.form.get("reflection", "").strip()
         engagement_raw = request.form.get("engagement", "").strip()
@@ -195,7 +260,7 @@ def create_app(test_config: dict | None = None) -> Flask:
                 INSERT INTO entry (date, notes, reflection, engagement)
                 VALUES (?, ?, ?, ?)
                 """,
-                (today_iso(), notes, reflection, engagement),
+                (today, notes, reflection, engagement),
             )
             entry_id = cursor.lastrowid
             for tag in deduped_tags:
@@ -205,7 +270,78 @@ def create_app(test_config: dict | None = None) -> Flask:
                 )
             connection.commit()
         except sqlite3.IntegrityError:
-            return "An entry for today already exists.", 400
+            return redirect(url_for("edit_entry", entry_date=today))
+        finally:
+            connection.close()
+
+        return redirect(url_for("dashboard"))
+
+    @app.get("/entry/<entry_date>/edit")
+    def edit_entry(entry_date: str) -> str:
+        if entry_date != today_iso():
+            return "Only today's entry can be edited.", 400
+
+        entry = get_entry_for_date(entry_date)
+        if entry is None:
+            return redirect(url_for("new_entry"))
+
+        return render_entry_form(
+            heading="Edit Today's Entry",
+            action=url_for("update_entry", entry_date=entry_date),
+            entry_date=entry_date,
+            notes=str(entry["notes"]),
+            reflection=str(entry["reflection"]),
+            engagement=str(entry["engagement"]),
+            selected_tags=set(entry["tags"]),
+        )
+
+    @app.post("/entry/<entry_date>")
+    def update_entry(entry_date: str):
+        if entry_date != today_iso():
+            return "Only today's entry can be edited.", 400
+
+        entry = get_entry_for_date(entry_date)
+        if entry is None:
+            return redirect(url_for("new_entry"))
+
+        notes = request.form.get("notes", "").strip()
+        reflection = request.form.get("reflection", "").strip()
+        engagement_raw = request.form.get("engagement", "").strip()
+        submitted_tags = request.form.getlist("tags")
+
+        try:
+            engagement = int(engagement_raw)
+        except ValueError:
+            return "Engagement must be an integer between 1 and 5.", 400
+
+        if not 1 <= engagement <= 5:
+            return "Engagement must be an integer between 1 and 5.", 400
+
+        deduped_tags: list[str] = []
+        for tag in submitted_tags:
+            if tag not in allowed_entry_tags:
+                return "Invalid entry tag.", 400
+            if tag not in deduped_tags:
+                deduped_tags.append(tag)
+
+        connection = sqlite3.connect(app.config["DATABASE"])
+        try:
+            connection.execute("PRAGMA foreign_keys = ON")
+            connection.execute(
+                """
+                UPDATE entry
+                SET notes = ?, reflection = ?, engagement = ?
+                WHERE id = ?
+                """,
+                (notes, reflection, engagement, entry["id"]),
+            )
+            connection.execute("DELETE FROM entry_tag WHERE entry_id = ?", (entry["id"],))
+            for tag in deduped_tags:
+                connection.execute(
+                    "INSERT INTO entry_tag (entry_id, tag) VALUES (?, ?)",
+                    (entry["id"], tag),
+                )
+            connection.commit()
         finally:
             connection.close()
 
