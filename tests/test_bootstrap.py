@@ -89,6 +89,8 @@ class BootstrapTests(unittest.TestCase):
             self.assertIn('data-notes="Detailed notes"', body)
             self.assertIn('data-reflection="Tied to my goal"', body)
             self.assertIn('data-tags="blocked, focused"', body)
+            self.assertIn('addEventListener("mouseenter"', body)
+            self.assertIn('addEventListener("focus"', body)
 
     def test_bootstrap_creates_default_goal_row(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

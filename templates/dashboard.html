@@ -66,14 +66,18 @@
             const tagsEl = document.getElementById("day-details-tags");
             const cells = document.querySelectorAll(".heatmap-cell[data-has-entry='1']");
 
+            const showCellDetails = (cell) => {
+                dateEl.textContent = cell.dataset.date || "Selected day";
+                engagementEl.textContent = cell.dataset.engagement || "—";
+                notesEl.textContent = cell.dataset.notes || "—";
+                reflectionEl.textContent = cell.dataset.reflection || "—";
+                tagsEl.textContent = cell.dataset.tags || "None";
+            };
+
             for (const cell of cells) {
-                cell.addEventListener("click", () => {
-                    dateEl.textContent = cell.dataset.date || "Selected day";
-                    engagementEl.textContent = cell.dataset.engagement || "—";
-                    notesEl.textContent = cell.dataset.notes || "—";
-                    reflectionEl.textContent = cell.dataset.reflection || "—";
-                    tagsEl.textContent = cell.dataset.tags || "None";
-                });
+                cell.addEventListener("click", () => showCellDetails(cell));
+                cell.addEventListener("mouseenter", () => showCellDetails(cell));
+                cell.addEventListener("focus", () => showCellDetails(cell));
             }
         })();
     </script>
