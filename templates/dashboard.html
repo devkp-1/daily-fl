@@ -18,6 +18,16 @@
 
         <section aria-label="Last 90 days heatmap">
             <h2>Last 90 Days</h2>
+            <div class="heatmap-legend" aria-label="Heatmap legend">
+                <span class="legend-label">Less</span>
+                <span class="legend-swatch intensity-0" title="No entry"></span>
+                <span class="legend-swatch intensity-1" title="Engagement 1"></span>
+                <span class="legend-swatch intensity-2" title="Engagement 2"></span>
+                <span class="legend-swatch intensity-3" title="Engagement 3"></span>
+                <span class="legend-swatch intensity-4" title="Engagement 4"></span>
+                <span class="legend-swatch intensity-5" title="Engagement 5"></span>
+                <span class="legend-label">More</span>
+            </div>
             <div class="heatmap" role="img" aria-label="Engagement heatmap for recent days">
                 {% for column in heatmap_columns %}
                 <div class="heatmap-column">

@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Edit Goal - Personal Productivity Loop</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <main>
+        <h1>Edit Goal</h1>
+        <form method="post" action="{{ url_for('save_goal') }}" class="form-card">
+            <label for="title">Title</label>
+            <input id="title" name="title" type="text" value="{{ goal_title }}">
+
+            <label for="description">Description</label>
+            <textarea id="description" name="description" rows="5">{{ goal_description }}</textarea>
+
+            <label for="target_date">Target date</label>
+            <input id="target_date" name="target_date" type="date" value="{{ goal_target_date }}">
+
+            <label for="status">Status</label>
+            <select id="status" name="status">
+                {% for status_option in goal_status_options %}
+                <option value="{{ status_option }}"{% if goal_status == status_option %} selected{% endif %}>{{ status_option.capitalize() }}</option>
+                {% endfor %}
+            </select>
+
+            <div class="form-actions">
+                <button type="submit">Save goal</button>
+                <a href="{{ url_for('dashboard') }}">Cancel</a>
+            </div>
+        </form>
+    </main>
+</body>
+</html>

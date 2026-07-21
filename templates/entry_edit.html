@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ heading|safe }} - Personal Productivity Loop</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <main>
+        <h1>{{ heading|safe }}</h1>
+        <p>Date: {{ entry_date }}</p>
+        <form method="post" action="{{ action }}" class="form-card">
+            <label for="notes">Notes</label>
+            <textarea id="notes" name="notes" rows="5">{{ notes }}</textarea>
+
+            <label for="reflection">Reflection</label>
+            <textarea id="reflection" name="reflection" rows="5">{{ reflection }}</textarea>
+
+            <label for="engagement">Engagement (1-5)</label>
+            <input id="engagement" name="engagement" type="number" min="1" max="5" required value="{{ engagement }}">
+
+            <fieldset class="tag-fieldset">
+                <legend>Tags</legend>
+                {% for tag in allowed_entry_tags %}
+                <label class="checkbox-row">
+                    <input type="checkbox" name="tags" value="{{ tag }}"{% if tag in selected_tags %} checked{% endif %}>
+                    <span>{{ tag }}</span>
+                </label>
+                {% endfor %}
+            </fieldset>
+
+            <div class="form-actions">
+                <button type="submit">Save entry</button>
+                <a href="{{ url_for('dashboard') }}">Cancel</a>
+            </div>
+        </form>
+    </main>
+</body>
+</html>

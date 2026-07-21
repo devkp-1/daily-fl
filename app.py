@@ -1,7 +1,6 @@
 from pathlib import Path
 import sqlite3
 from datetime import date, timedelta
-from html import escape
 
 from flask import Flask, redirect, render_template, request, url_for
 
@@ -65,40 +64,6 @@ def create_app(test_config: dict | None = None) -> Flask:
             "engagement": int(entry_row["engagement"]),
             "tags": [str(row["tag"]) for row in tag_rows],
         }
-
-    def render_entry_form(
-        *,
-        heading: str,
-        action: str,
-        entry_date: str,
-        notes: str,
-        reflection: str,
-        engagement: str,
-        selected_tags: set[str],
-    ) -> str:
-        tag_options = "".join(
-            (
-                f'<label><input type="checkbox" name="tags" value="{tag}"'
-                f'{" checked" if tag in selected_tags else ""}> '
-                f"{escape(tag)}</label><br>"
-            )
-            for tag in allowed_entry_tags
-        )
-        return (
-            f"<h1>{heading}</h1>"
-            f"<p>Date: {escape(entry_date)}</p>"
-            f'<form method="post" action="{escape(action)}">'
-            '<label for="notes">Notes</label><br>'
-            f'<textarea id="notes" name="notes">{escape(notes)}</textarea><br>'
-            '<label for="reflection">Reflection</label><br>'
-            f'<textarea id="reflection" name="reflection">{escape(reflection)}</textarea><br>'
-            '<label for="engagement">Engagement (1-5)</label><br>'
-            f'<input id="engagement" name="engagement" type="number" min="1" max="5" required value="{escape(engagement)}"><br>'
-            "<p>Tags</p>"
-            f"{tag_options}<br>"
-            '<button type="submit">Save entry</button>'
-            "</form>"
-        )
 
     def get_goal_row() -> dict[str, str | None]:
         connection = sqlite3.connect(app.config["DATABASE"])
@@ -230,30 +195,13 @@ def create_app(test_config: dict | None = None) -> Flask:
     @app.get("/goal/edit")
     def edit_goal() -> str:
         goal = get_goal_row()
-        target_date = goal["target_date"] or ""
-        status = goal["status"] or "active"
-
-        options = "".join(
-            (
-                f'<option value="{candidate}"{" selected" if status == candidate else ""}>'
-                f"{candidate.capitalize()}</option>"
-            )
-            for candidate in ("active", "paused", "completed")
-        )
-
-        return (
-            "<h1>Edit Goal</h1>"
-            '<form method="post" action="/goal">'
-            '<label for="title">Title</label><br>'
-            f'<input id="title" name="title" type="text" value="{escape(goal["title"] or "")}"><br>'
-            '<label for="description">Description</label><br>'
-            f'<textarea id="description" name="description">{escape(goal["description"] or "")}</textarea><br>'
-            '<label for="target_date">Target date</label><br>'
-            f'<input id="target_date" name="target_date" type="date" value="{escape(target_date)}"><br>'
-            '<label for="status">Status</label><br>'
-            f'<select id="status" name="status">{options}</select><br><br>'
-            '<button type="submit">Save goal</button>'
-            "</form>"
+        return render_template(
+            "goal_edit.html",
+            goal_title=goal["title"] or "",
+            goal_description=goal["description"] or "",
+            goal_target_date=goal["target_date"] or "",
+            goal_status=goal["status"] or "active",
+            goal_status_options=("active", "paused", "completed"),
         )
 
     @app.post("/goal")
@@ -288,13 +236,15 @@ def create_app(test_config: dict | None = None) -> Flask:
         if get_entry_for_date(today) is not None:
             return redirect(url_for("edit_entry", entry_date=today))
 
-        return render_entry_form(
+        return render_template(
+            "entry_edit.html",
             heading="Log Today's Entry",
             action=url_for("save_entry"),
             entry_date=today,
             notes="",
             reflection="",
             engagement="",
+            allowed_entry_tags=allowed_entry_tags,
             selected_tags=set(),
         )
 
@@ -357,13 +307,15 @@ def create_app(test_config: dict | None = None) -> Flask:
         if entry is None:
             return redirect(url_for("new_entry"))
 
-        return render_entry_form(
+        return render_template(
+            "entry_edit.html",
             heading="Edit Today's Entry",
             action=url_for("update_entry", entry_date=entry_date),
             entry_date=entry_date,
             notes=str(entry["notes"]),
             reflection=str(entry["reflection"]),
             engagement=str(entry["engagement"]),
+            allowed_entry_tags=allowed_entry_tags,
             selected_tags=set(entry["tags"]),
         )
 
