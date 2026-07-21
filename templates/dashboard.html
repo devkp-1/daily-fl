@@ -22,17 +22,50 @@
                 {% for column in heatmap_columns %}
                 <div class="heatmap-column">
                     {% for day in column %}
-                    <div
+                    <button
+                        type="button"
                         class="heatmap-cell intensity-{{ day.engagement }}{% if not day.in_last_90 %} heatmap-cell-outside{% endif %}{% if day.is_today %} heatmap-cell-today{% endif %}"
                         data-date="{{ day.date }}"
                         data-engagement="{{ day.engagement }}"
+                        data-notes="{{ day.notes }}"
+                        data-reflection="{{ day.reflection }}"
+                        data-tags="{{ day.tags | join(', ') }}"
+                        {% if day.has_entry %}data-has-entry="1"{% else %}data-has-entry="0" disabled{% endif %}
                         title="{{ day.date }} (engagement: {{ day.engagement }})"
-                    ></div>
+                        aria-label="{{ day.date }} engagement {{ day.engagement }}"
+                    ></button>
                     {% endfor %}
                 </div>
                 {% endfor %}
             </div>
+            <section id="day-details" class="day-details" aria-live="polite">
+                <h3 id="day-details-date">Select a filled day</h3>
+                <p><strong>Engagement:</strong> <span id="day-details-engagement">—</span></p>
+                <p><strong>Notes:</strong> <span id="day-details-notes">—</span></p>
+                <p><strong>Reflection:</strong> <span id="day-details-reflection">—</span></p>
+                <p><strong>Tags:</strong> <span id="day-details-tags">—</span></p>
+            </section>
         </section>
     </main>
+    <script>
+        (() => {
+            const dateEl = document.getElementById("day-details-date");
+            const engagementEl = document.getElementById("day-details-engagement");
+            const notesEl = document.getElementById("day-details-notes");
+            const reflectionEl = document.getElementById("day-details-reflection");
+            const tagsEl = document.getElementById("day-details-tags");
+            const cells = document.querySelectorAll(".heatmap-cell[data-has-entry='1']");
+
+            for (const cell of cells) {
+                cell.addEventListener("click", () => {
+                    dateEl.textContent = cell.dataset.date || "Selected day";
+                    engagementEl.textContent = cell.dataset.engagement || "—";
+                    notesEl.textContent = cell.dataset.notes || "—";
+                    reflectionEl.textContent = cell.dataset.reflection || "—";
+                    tagsEl.textContent = cell.dataset.tags || "None";
+                });
+            }
+        })();
+    </script>
 </body>
 </html>

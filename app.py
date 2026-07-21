@@ -142,7 +142,7 @@ def create_app(test_config: dict | None = None) -> Flask:
         finally:
             connection.close()
 
-    def get_heatmap_columns() -> list[list[dict[str, str | int | bool]]]:
+    def get_heatmap_columns() -> list[list[dict[str, str | int | bool | list[str]]]]:
         today = date.today()
         last_90_start = today - timedelta(days=89)
 
@@ -156,32 +156,59 @@ def create_app(test_config: dict | None = None) -> Flask:
         try:
             entry_rows = connection.execute(
                 """
-                SELECT date, engagement
+                SELECT id, date, notes, reflection, engagement
                 FROM entry
                 WHERE date BETWEEN ? AND ?
+                """,
+                (grid_start.isoformat(), grid_end.isoformat()),
+            ).fetchall()
+            tag_rows = connection.execute(
+                """
+                SELECT e.date, et.tag
+                FROM entry_tag et
+                JOIN entry e ON e.id = et.entry_id
+                WHERE e.date BETWEEN ? AND ?
+                ORDER BY et.tag
                 """,
                 (grid_start.isoformat(), grid_end.isoformat()),
             ).fetchall()
         finally:
             connection.close()
 
-        engagement_by_date = {str(row["date"]): int(row["engagement"]) for row in entry_rows}
+        entry_by_date: dict[str, dict[str, str | int | list[str]]] = {
+            str(row["date"]): {
+                "engagement": int(row["engagement"]),
+                "notes": str(row["notes"]),
+                "reflection": str(row["reflection"]),
+                "tags": [],
+            }
+            for row in entry_rows
+        }
+        for row in tag_rows:
+            day = str(row["date"])
+            if day in entry_by_date:
+                entry_by_date[day]["tags"].append(str(row["tag"]))
 
-        columns: list[list[dict[str, str | int | bool]]] = []
+        columns: list[list[dict[str, str | int | bool | list[str]]]] = []
         for week_offset in range(13):
             week_start = grid_start + timedelta(weeks=week_offset)
-            week_days: list[dict[str, str | int | bool]] = []
+            week_days: list[dict[str, str | int | bool | list[str]]] = []
             for day_offset in range(7):
                 day_value = week_start + timedelta(days=day_offset)
                 day_iso = day_value.isoformat()
                 in_last_90 = last_90_start <= day_value <= today
-                engagement = engagement_by_date.get(day_iso, 0) if in_last_90 else 0
+                day_entry = entry_by_date.get(day_iso)
+                engagement = int(day_entry["engagement"]) if day_entry is not None and in_last_90 else 0
                 week_days.append(
                     {
                         "date": day_iso,
                         "engagement": engagement,
                         "in_last_90": in_last_90,
                         "is_today": day_value == today,
+                        "notes": str(day_entry["notes"]) if day_entry is not None else "",
+                        "reflection": str(day_entry["reflection"]) if day_entry is not None else "",
+                        "tags": list(day_entry["tags"]) if day_entry is not None else [],
+                        "has_entry": day_entry is not None and in_last_90,
                     }
                 )
             columns.append(week_days)

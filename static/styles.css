@@ -18,7 +18,10 @@ body {
     width: 14px;
     height: 14px;
     border-radius: 2px;
+    border: 0;
+    padding: 0;
     background: #ebedf0;
+    cursor: default;
 }
 
 .intensity-1 {
@@ -48,4 +51,13 @@ body {
 .heatmap-cell-today {
     outline: 1px solid #333;
     outline-offset: 1px;
+}
+
+.heatmap-cell[data-has-entry="1"] {
+    cursor: pointer;
+}
+
+.day-details {
+    margin-top: 16px;
+    max-width: 680px;
 }

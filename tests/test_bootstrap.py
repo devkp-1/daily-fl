@@ -55,6 +55,41 @@ class BootstrapTests(unittest.TestCase):
             self.assertIn("intensity-2", body)
             self.assertIn(f'data-date="{date.today().isoformat()}"', body)
 
+    def test_dashboard_exposes_day_details_metadata_for_filled_cells(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            db_path = Path(tmp_dir) / "test_app.db"
+            app = create_app({"TESTING": True, "DATABASE": str(db_path)})
+
+            connection = sqlite3.connect(db_path)
+            try:
+                cursor = connection.execute(
+                    "INSERT INTO entry (date, notes, reflection, engagement) VALUES (?, ?, ?, ?)",
+                    (date.today().isoformat(), "Detailed notes", "Tied to my goal", 4),
+                )
+                entry_id = cursor.lastrowid
+                connection.execute(
+                    "INSERT INTO entry_tag (entry_id, tag) VALUES (?, ?)",
+                    (entry_id, "focused"),
+                )
+                connection.execute(
+                    "INSERT INTO entry_tag (entry_id, tag) VALUES (?, ?)",
+                    (entry_id, "blocked"),
+                )
+            finally:
+                connection.commit()
+                connection.close()
+
+            response = app.test_client().get("/")
+            body = response.get_data(as_text=True)
+
+            self.assertEqual(response.status_code, 200)
+            self.assertIn('id="day-details"', body)
+            self.assertIn('id="day-details-notes"', body)
+            self.assertIn('data-has-entry="1"', body)
+            self.assertIn('data-notes="Detailed notes"', body)
+            self.assertIn('data-reflection="Tied to my goal"', body)
+            self.assertIn('data-tags="blocked, focused"', body)
+
     def test_bootstrap_creates_default_goal_row(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             db_path = Path(tmp_dir) / "test_app.db"
