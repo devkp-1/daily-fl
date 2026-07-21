@@ -2,6 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 import sqlite3
+from datetime import date
 
 from app import create_app
 
@@ -185,6 +186,87 @@ class BootstrapTests(unittest.TestCase):
 
             self.assertEqual(response.status_code, 400)
             self.assertIn("Invalid goal status.", response.get_data(as_text=True))
+
+    def test_get_new_entry_page_renders_form_and_tags(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            db_path = Path(tmp_dir) / "test_app.db"
+            app = create_app({"TESTING": True, "DATABASE": str(db_path)})
+
+            response = app.test_client().get("/entry/new")
+            body = response.get_data(as_text=True)
+
+            self.assertEqual(response.status_code, 200)
+            self.assertIn("<h1>Log Today's Entry</h1>", body)
+            self.assertIn(f"Date: {date.today().isoformat()}", body)
+            self.assertIn('name="engagement"', body)
+            self.assertIn('value="focused"', body)
+            self.assertIn('value="breakthrough"', body)
+
+    def test_post_entry_creates_today_entry_with_selected_tags(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            db_path = Path(tmp_dir) / "test_app.db"
+            app = create_app({"TESTING": True, "DATABASE": str(db_path)})
+            client = app.test_client()
+
+            response = client.post(
+                "/entry",
+                data={
+                    "notes": "Made progress",
+                    "reflection": "Aligned with goal",
+                    "engagement": "4",
+                    "tags": ["focused", "breakthrough"],
+                },
+            )
+            self.assertEqual(response.status_code, 302)
+            self.assertTrue(response.headers["Location"].endswith("/"))
+
+            connection = sqlite3.connect(db_path)
+            try:
+                entry = connection.execute(
+                    "SELECT id, date, notes, reflection, engagement FROM entry"
+                ).fetchone()
+                self.assertIsNotNone(entry)
+                self.assertEqual(entry[1], date.today().isoformat())
+                self.assertEqual(entry[2], "Made progress")
+                self.assertEqual(entry[3], "Aligned with goal")
+                self.assertEqual(entry[4], 4)
+
+                tags = connection.execute(
+                    "SELECT tag FROM entry_tag WHERE entry_id = ? ORDER BY tag",
+                    (entry[0],),
+                ).fetchall()
+            finally:
+                connection.close()
+
+            self.assertEqual([row[0] for row in tags], ["breakthrough", "focused"])
+
+    def test_post_entry_allows_empty_tag_selection(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            db_path = Path(tmp_dir) / "test_app.db"
+            app = create_app({"TESTING": True, "DATABASE": str(db_path)})
+            client = app.test_client()
+
+            response = client.post(
+                "/entry",
+                data={
+                    "notes": "No tags today",
+                    "reflection": "Still showed up",
+                    "engagement": "2",
+                },
+            )
+            self.assertEqual(response.status_code, 302)
+
+            connection = sqlite3.connect(db_path)
+            try:
+                entry_id = connection.execute("SELECT id FROM entry").fetchone()[0]
+                tag_count = connection.execute(
+                    "SELECT COUNT(*) FROM entry_tag WHERE entry_id = ?",
+                    (entry_id,),
+                ).fetchone()[0]
+            finally:
+                connection.close()
+
+            self.assertEqual(tag_count, 0)
 
 
 if __name__ == "__main__":

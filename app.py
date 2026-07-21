@@ -19,6 +19,16 @@ def create_app(test_config: dict | None = None) -> Flask:
 
     ensure_database(app.config["DATABASE"])
     allowed_goal_statuses = {"active", "paused", "completed"}
+    allowed_entry_tags = (
+        "focused",
+        "distracted",
+        "blocked",
+        "low-energy",
+        "breakthrough",
+    )
+
+    def today_iso() -> str:
+        return date.today().isoformat()
 
     def get_goal_row() -> dict[str, str | None]:
         connection = sqlite3.connect(app.config["DATABASE"])
@@ -128,6 +138,77 @@ def create_app(test_config: dict | None = None) -> Flask:
             target_date=target_date_value,
             status=status,
         )
+        return redirect(url_for("dashboard"))
+
+    @app.get("/entry/new")
+    def new_entry() -> str:
+        tag_options = "".join(
+            (
+                f'<label><input type="checkbox" name="tags" value="{tag}"> '
+                f"{escape(tag)}</label><br>"
+            )
+            for tag in allowed_entry_tags
+        )
+        return (
+            "<h1>Log Today's Entry</h1>"
+            f"<p>Date: {escape(today_iso())}</p>"
+            '<form method="post" action="/entry">'
+            '<label for="notes">Notes</label><br>'
+            '<textarea id="notes" name="notes"></textarea><br>'
+            '<label for="reflection">Reflection</label><br>'
+            '<textarea id="reflection" name="reflection"></textarea><br>'
+            '<label for="engagement">Engagement (1-5)</label><br>'
+            '<input id="engagement" name="engagement" type="number" min="1" max="5" required><br>'
+            "<p>Tags</p>"
+            f"{tag_options}<br>"
+            '<button type="submit">Save entry</button>'
+            "</form>"
+        )
+
+    @app.post("/entry")
+    def save_entry():
+        notes = request.form.get("notes", "").strip()
+        reflection = request.form.get("reflection", "").strip()
+        engagement_raw = request.form.get("engagement", "").strip()
+        submitted_tags = request.form.getlist("tags")
+
+        try:
+            engagement = int(engagement_raw)
+        except ValueError:
+            return "Engagement must be an integer between 1 and 5.", 400
+
+        if not 1 <= engagement <= 5:
+            return "Engagement must be an integer between 1 and 5.", 400
+
+        deduped_tags: list[str] = []
+        for tag in submitted_tags:
+            if tag not in allowed_entry_tags:
+                return "Invalid entry tag.", 400
+            if tag not in deduped_tags:
+                deduped_tags.append(tag)
+
+        connection = sqlite3.connect(app.config["DATABASE"])
+        try:
+            connection.execute("PRAGMA foreign_keys = ON")
+            cursor = connection.execute(
+                """
+                INSERT INTO entry (date, notes, reflection, engagement)
+                VALUES (?, ?, ?, ?)
+                """,
+                (today_iso(), notes, reflection, engagement),
+            )
+            entry_id = cursor.lastrowid
+            for tag in deduped_tags:
+                connection.execute(
+                    "INSERT INTO entry_tag (entry_id, tag) VALUES (?, ?)",
+                    (entry_id, tag),
+                )
+            connection.commit()
+        except sqlite3.IntegrityError:
+            return "An entry for today already exists.", 400
+        finally:
+            connection.close()
+
         return redirect(url_for("dashboard"))
 
     return app
