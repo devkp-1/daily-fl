@@ -1,0 +1,9 @@
+Base System Review:
+
+Had Copilot Review /base-system.md with following prompt: "Review the spec at specs/base-system.md. I have minimum 10 total hours including a second extension step after this base
+system. Point out anything that's ambiguous, missing, unrealistic for
+the timeline, or likely to cause problems for a coding agent implementing
+it from this spec alone. Don't implement anything - just give feedback."
+
+Base System Planning:
+
