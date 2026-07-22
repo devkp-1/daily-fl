@@ -68,3 +68,9 @@ Extension Build:
 Prompt to Claude Agent: "Model response was not valid JSON. after pressing 'Run Weekly Review' button", pasted _normalize_model_payload 
 function  and asked for a fix.
 -Fix: added a _strip_markdown_fences helper to clean the response before parsing, and included a truncated raw response in the error message for future debugging.
+-Prompt to Copilot: "The goal table's description field for goal id=1 has suggestion text accidentally appended 
+to it from earlier testing. Clean it up so description only contains the original goal text"
+
+                    "In the POST /suggestion/<id>/accept route, stop appending suggestion text into goal.description 
+                    when a suggestion is accepted. It should only update the suggestion's status to "accepted". 
+                    Commit when done with message prefixed 'build'."
