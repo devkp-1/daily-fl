@@ -4,7 +4,7 @@
   - `python3 -m venv .venv`
   - `. .venv/bin/activate`
 - Install dependencies in the venv:
-  - `python3 -m pip install flask`
+  - `python3 -m pip install flask anthropic python-dotenv`
 - Run the app:
   - `python3 app.py`
 - Run the current targeted test:

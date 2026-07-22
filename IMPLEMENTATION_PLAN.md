@@ -6,9 +6,9 @@ Current state check: all `specs/base-system.md` acceptance criteria are already 
    - Implemented `weekly_summary` and `suggestion` tables with required enums/fields, FK from `suggestion.weekly_summary_id`, and safe `CREATE TABLE IF NOT EXISTS` bootstrap behavior for existing DBs.
    - Covered by schema bootstrap tests that verify table creation plus invalid assessment/status and FK constraint failures.
 
-2. Add configuration/loading for AI review dependencies and API key handling.
-   - Add `anthropic` and `.env` loading path (`python-dotenv` or explicit `os.environ` flow) in app startup/review helper code; fail explicitly when key is missing.
-   - Done looks like: review code reads key from environment, never hardcoded in repo, and returns a clear server error if key is unavailable.
+2. [x] Add configuration/loading for AI review dependencies and API key handling.
+   - Implemented `weekly_review.py` helper wiring with optional `.env` loading (via `python-dotenv` when installed), strict `ANTHROPIC_API_KEY` lookup, and explicit configuration errors for missing key or missing `anthropic` package.
+   - Wired app startup config with `WEEKLY_REVIEW_CLIENT_FACTORY` to keep one canonical weekly-review client construction path.
 
 3. Implement weekly-review service logic (data collection + prompt + response validation).
    - Build a helper that gathers current goal, full entry history (with tags), and prior weekly summaries; computes rolling 7-day window ending today; calls Claude with “propose, not decide” prompt instructions; validates assessment enum and 1-3 suggestions before persistence.

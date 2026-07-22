@@ -5,12 +5,14 @@ from datetime import date, timedelta
 from flask import Flask, redirect, render_template, request, url_for
 
 from db import ensure_database
+from weekly_review import create_anthropic_client
 
 
 def create_app(test_config: dict | None = None) -> Flask:
     app = Flask(__name__)
     app.config.from_mapping(
         DATABASE=str(Path(__file__).resolve().parent / "app.db"),
+        WEEKLY_REVIEW_CLIENT_FACTORY=create_anthropic_client,
     )
 
     if test_config:

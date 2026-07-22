@@ -4,8 +4,14 @@ from pathlib import Path
 import sqlite3
 from datetime import date, timedelta
 import re
+from unittest.mock import patch
 
 from app import create_app
+from weekly_review import (
+    WeeklyReviewConfigurationError,
+    create_anthropic_client,
+    load_weekly_review_api_key,
+)
 
 
 class BootstrapTests(unittest.TestCase):
@@ -547,6 +553,51 @@ class BootstrapTests(unittest.TestCase):
 
             self.assertEqual(entry[1:], ("Updated note", "Updated reflection", 5))
             self.assertEqual([row[0] for row in tags], ["breakthrough"])
+
+    def test_load_weekly_review_api_key_raises_clear_error_when_missing(self) -> None:
+        with patch.dict("os.environ", {}, clear=True):
+            with patch("weekly_review.importlib.import_module", side_effect=ModuleNotFoundError()):
+                with self.assertRaisesRegex(
+                    WeeklyReviewConfigurationError,
+                    "Weekly review requires ANTHROPIC_API_KEY",
+                ):
+                    load_weekly_review_api_key()
+
+    def test_load_weekly_review_api_key_reads_environment_value(self) -> None:
+        with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "  test-key  "}, clear=True):
+            api_key = load_weekly_review_api_key()
+
+        self.assertEqual(api_key, "test-key")
+
+    def test_create_anthropic_client_raises_clear_error_when_package_missing(self) -> None:
+        with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}, clear=True):
+            with patch("weekly_review.importlib.import_module", side_effect=ModuleNotFoundError()):
+                with self.assertRaisesRegex(
+                    WeeklyReviewConfigurationError,
+                    "requires the anthropic package",
+                ):
+                    create_anthropic_client()
+
+    def test_create_anthropic_client_uses_key_from_environment(self) -> None:
+        class FakeAnthropic:
+            def __init__(self, *, api_key: str):
+                self.api_key = api_key
+
+        class FakeAnthropicModule:
+            Anthropic = FakeAnthropic
+
+        def fake_import_module(name: str):
+            if name == "dotenv":
+                raise ModuleNotFoundError()
+            if name == "anthropic":
+                return FakeAnthropicModule
+            raise AssertionError(f"Unexpected module import: {name}")
+
+        with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "live-key"}, clear=True):
+            with patch("weekly_review.importlib.import_module", side_effect=fake_import_module):
+                client = create_anthropic_client()
+
+        self.assertEqual(client.api_key, "live-key")
 
 
 if __name__ == "__main__":
