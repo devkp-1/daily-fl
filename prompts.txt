@@ -1,9 +1,70 @@
+========================================
 Base System Review:
 
-Had Copilot Review /base-system.md with following prompt: "Review the spec at specs/base-system.md. I have minimum 10 total hours including a second extension step after this base
+Had Copilot Review /base-system.md with following prompt: "Review the spec at specs/base-system.md.
+I have minimum 10 total hours including a second extension step after this base
 system. Point out anything that's ambiguous, missing, unrealistic for
 the timeline, or likely to cause problems for a coding agent implementing
 it from this spec alone. Don't implement anything - just give feedback."
 
+_____________________
 Base System Planning:
 
+Prompt to Claude Agent: "Write PROMPT_plan.md adapted from the gwincr11/ralph-wiggum-tutorial's plan-mode format." 
+-For the study specs, study current IMPLEMENTATION_PLAN.md (treat as possibly wrong, verify against actual codebase before 
+assuming anything is missing), write/update the plan, output <promise>DONE</promise> when complete. 
+-Removed the tutorial's Claude-Code-specific instructions (parallel Sonnet/Opus subagents, "ultrathink") 
+since Copilot CLI has no equivalent to translate them into.
+
+-Wrote loop.sh adapted directly from the tutorial's actual loop script: 
+same structure (mode flags, prompt file input, commit/push per iteration, stop-string detection 
+via <promise>DONE</promise>), with one change — --model claude-opus-4.8 changed to --model auto
+
+script command:     
+    
+    ./loop.sh -m plan -n 3
+
+_____________________
+Base System Build:
+
+Prompt to Claude Agent: "Edit PROMPT_build.md using tutorial's build-mode format as reference: pick the highest-priority unfinished plan item, 
+verify via codebase search" 
+
+script command:
+    
+    ./loop.sh -m build -n 15
+
+-Copilot implemented all 12 plan items and self-committing after each.
+
+_____________________
+Extension Review:
+
+Had Copilot review specs/extension.md with the following prompt:
+"Review the spec at specs/extension.md. I have 10 working hours left including this being the second extension step 
+after the base system. Point out anything that's ambiguous, missing, unrealistic for the timeline, or likely to cause problems 
+for a coding agent implementing it from this spec alone. Don't implement anything - just give feedback."
+
+_____________________
+Extension Planning:
+
+Prompt to Claude Agent: "Fix PROMPT_plan.md and PROMPT_build.md, which had hardcoded specs/base-system.md instead of reading the whole specs/ directory."
+-Bug caught when the plan loop only re-verified the base system and produced no extension tasks 
+-Changed both files to: "Read every file in specs/ in full (not just one spec file, EX. base-system.md and extension.md; read all of them to understand the full scope)."
+
+script command:
+    
+    ./loop.sh -m plan -n 3
+
+-Copilot read both specs, verified base-system was already implemented via codebase search, and produced a plan containing
+ only extension tasks.
+
+_____________________
+Extension Build:
+
+./loop.sh -m build -n 15
+
+-Copilot implemented all extension plan items and self-committed after each
+-Bug Fix: Weekly Review JSON Parsing (manual, post-build):
+Prompt to Claude Agent: "Model response was not valid JSON. after pressing 'Run Weekly Review' button", pasted _normalize_model_payload 
+function  and asked for a fix.
+-Fix: added a _strip_markdown_fences helper to clean the response before parsing, and included a truncated raw response in the error message for future debugging.
