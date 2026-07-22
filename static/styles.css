@@ -1,33 +1,74 @@
+:root {
+    --bg: #f5f6fa;
+    --card-bg: #ffffff;
+    --border: #e2e5ec;
+    --text: #1f2937;
+    --text-muted: #6b7280;
+    --accent: #2563eb;
+    --accent-hover: #1d4ed8;
+    --shadow: 0 1px 2px rgba(16, 24, 40, 0.05), 0 1px 3px rgba(16, 24, 40, 0.06);
+}
+
+* {
+    box-sizing: border-box;
+}
+
 body {
-    background: #f7f8fb;
-    color: #1f2937;
-    font-family: Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica,
+        Arial, sans-serif;
+    line-height: 1.5;
     margin: 0;
 }
 
 main {
-    margin: 24px auto;
+    margin: 32px auto;
     max-width: 980px;
-    padding: 0 16px;
+    padding: 0 20px;
 }
 
 h1 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
     margin-top: 0;
+    margin-bottom: 4px;
+}
+
+h2 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 8px;
 }
 
 a {
-    color: #1d4ed8;
+    color: var(--accent);
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
 }
 
 .form-card {
-    background: #fff;
-    border: 1px solid #d5d9e2;
-    border-radius: 8px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
     max-width: 680px;
-    padding: 16px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.form-card label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: -6px;
 }
 
 .form-card input[type="text"],
@@ -35,41 +76,68 @@ a {
 .form-card input[type="number"],
 .form-card textarea,
 .form-card select {
-    border: 1px solid #b8beca;
+    border: 1px solid var(--border);
     border-radius: 6px;
     font: inherit;
-    padding: 8px;
+    padding: 9px 10px;
+    transition: border-color 0.15s ease;
+    width: 100%;
+}
+
+.form-card input:focus,
+.form-card textarea:focus,
+.form-card select:focus {
+    border-color: var(--accent);
+    outline: 2px solid rgba(37, 99, 235, 0.15);
+    outline-offset: 1px;
 }
 
 .tag-fieldset {
-    border: 1px solid #d5d9e2;
-    border-radius: 6px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
     margin: 4px 0 0;
-    padding: 10px 12px;
+    padding: 12px 14px;
+}
+
+.tag-fieldset legend {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 0 4px;
 }
 
 .checkbox-row {
     align-items: center;
     display: flex;
     gap: 8px;
-    margin: 4px 0;
+    margin: 6px 0;
 }
 
 .form-actions {
     align-items: center;
     display: flex;
     gap: 12px;
-    margin-top: 8px;
+    margin-top: 4px;
 }
 
 .form-actions button {
-    background: #1d4ed8;
+    background: var(--accent);
     border: 0;
     border-radius: 6px;
     color: #fff;
     cursor: pointer;
     font: inherit;
-    padding: 8px 12px;
+    font-weight: 600;
+    padding: 9px 16px;
+    transition: background 0.15s ease, transform 0.05s ease;
+}
+
+.form-actions button:hover {
+    background: var(--accent-hover);
+}
+
+.form-actions button:active {
+    transform: translateY(1px);
 }
 
 .heatmap {
@@ -82,12 +150,12 @@ a {
     align-items: center;
     display: flex;
     gap: 6px;
-    margin-top: 4px;
+    margin-top: 10px;
 }
 
 .legend-label {
-    color: #4b5563;
-    font-size: 13px;
+    color: var(--text-muted);
+    font-size: 12px;
 }
 
 .heatmap-column {
@@ -99,11 +167,16 @@ a {
 .heatmap-cell {
     width: 14px;
     height: 14px;
-    border-radius: 2px;
+    border-radius: 3px;
     border: 0;
     padding: 0;
     background: #ebedf0;
     cursor: default;
+    transition: transform 0.1s ease;
+}
+
+.heatmap-cell[data-has-entry="1"]:hover {
+    transform: scale(1.25);
 }
 
 .intensity-0 {
@@ -135,7 +208,7 @@ a {
 }
 
 .heatmap-cell-today {
-    outline: 1px solid #333;
+    outline: 2px solid #1f2937;
     outline-offset: 1px;
 }
 
@@ -144,17 +217,18 @@ a {
 }
 
 .legend-swatch {
-    border-radius: 2px;
+    border-radius: 3px;
     display: inline-block;
     height: 12px;
     width: 12px;
 }
 
 .day-details {
-    background: #fff;
-    border: 1px solid #d5d9e2;
-    border-radius: 8px;
-    margin-top: 16px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+    margin-top: 20px;
     max-width: 680px;
-    padding: 12px 14px;
+    padding: 16px 18px;
 }
