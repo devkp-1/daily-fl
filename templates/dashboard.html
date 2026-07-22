@@ -14,6 +14,32 @@
         <p>Goal target date: {{ goal_target_date }}</p>
         <p>Goal status: {{ goal_status }}</p>
         <p><a href="{{ url_for('edit_goal') }}">Edit goal</a></p>
+        <form method="post" action="{{ url_for('run_weekly_review') }}">
+            <button type="submit">Run weekly review</button>
+        </form>
+        {% if pending_suggestion_count > 0 %}
+        <p>
+            <strong id="pending-suggestion-indicator">
+                Pending suggestions: {{ pending_suggestion_count }}
+            </strong>
+        </p>
+        <details>
+            <summary>Review pending suggestions</summary>
+            <ul>
+                {% for suggestion in pending_suggestions %}
+                <li>
+                    <p>{{ suggestion.text }}</p>
+                    <form method="post" action="/suggestion/{{ suggestion.id }}/accept">
+                        <button type="submit">Accept ✓</button>
+                    </form>
+                    <form method="post" action="/suggestion/{{ suggestion.id }}/reject">
+                        <button type="submit">Reject ✗</button>
+                    </form>
+                </li>
+                {% endfor %}
+            </ul>
+        </details>
+        {% endif %}
         <p><a href="{{ url_for('new_entry') }}">Log today</a></p>
 
         <section aria-label="Last 90 days heatmap">

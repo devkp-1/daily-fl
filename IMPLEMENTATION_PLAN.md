@@ -19,10 +19,10 @@ Current state check: all `specs/base-system.md` acceptance criteria are already 
    - Route now rolls back the transaction on any write failure to prevent partial persistence.
    - Added route tests for successful persistence and rollback on mid-transaction failure.
 
-5. Extend dashboard UI for review trigger + pending suggestion indicator/list.
-   - Add “Run weekly review” control and a pending badge/count near goal section; render pending suggestions with accept/reject controls that post to their routes.
-   - Done looks like: when pending suggestions exist, indicator appears and suggestion actions are visible on `/`; when none exist, indicator is hidden.
-   - Assumption: “expand list” requirement is satisfied with a simple native details/toggle UI (no JS framework).
+5. [x] Extend dashboard UI for review trigger + pending suggestion indicator/list.
+   - Dashboard now includes a `Run weekly review` POST control and queries pending suggestions from the DB.
+   - Added pending badge/count and a native `<details>` expandable list rendering each pending suggestion with accept/reject POST controls.
+   - Added tests confirming indicator/list/action visibility when pending suggestions exist and hidden state when none exist.
 
 6. Implement `POST /suggestion/<id>/accept` behavior.
    - For a pending suggestion, mark `accepted` and append suggestion text to goal description with a date-stamped separator.

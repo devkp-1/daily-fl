@@ -785,6 +785,52 @@ class BootstrapTests(unittest.TestCase):
             self.assertEqual(summary_count, 0)
             self.assertEqual(suggestion_count, 0)
 
+    def test_dashboard_shows_pending_suggestion_indicator_and_controls(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            db_path = Path(tmp_dir) / "test_app.db"
+            app = create_app({"TESTING": True, "DATABASE": str(db_path)})
+
+            connection = sqlite3.connect(db_path)
+            try:
+                summary_id = connection.execute(
+                    """
+                    INSERT INTO weekly_summary (week_start, week_end, assessment, summary_text)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    ("2026-01-05", "2026-01-11", "on_track", "Summary"),
+                ).lastrowid
+                connection.execute(
+                    "INSERT INTO suggestion (weekly_summary_id, text, status) VALUES (?, ?, ?)",
+                    (summary_id, "Try batching meetings.", "pending"),
+                )
+                connection.commit()
+            finally:
+                connection.close()
+
+            response = app.test_client().get("/")
+            body = response.get_data(as_text=True)
+
+            self.assertEqual(response.status_code, 200)
+            self.assertIn("Run weekly review", body)
+            self.assertIn('id="pending-suggestion-indicator"', body)
+            self.assertIn("Pending suggestions: 1", body)
+            self.assertIn("Try batching meetings.", body)
+            self.assertIn('/suggestion/1/accept', body)
+            self.assertIn('/suggestion/1/reject', body)
+
+    def test_dashboard_hides_pending_indicator_when_no_pending_suggestions(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            db_path = Path(tmp_dir) / "test_app.db"
+            app = create_app({"TESTING": True, "DATABASE": str(db_path)})
+
+            response = app.test_client().get("/")
+            body = response.get_data(as_text=True)
+
+            self.assertEqual(response.status_code, 200)
+            self.assertIn("Run weekly review", body)
+            self.assertNotIn('id="pending-suggestion-indicator"', body)
+            self.assertNotIn("Review pending suggestions", body)
+
 
 if __name__ == "__main__":
     unittest.main()

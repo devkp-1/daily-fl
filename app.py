@@ -186,9 +186,34 @@ def create_app(test_config: dict | None = None) -> Flask:
 
         return columns
 
+    def get_pending_suggestions() -> list[dict[str, str | int]]:
+        connection = sqlite3.connect(app.config["DATABASE"])
+        connection.row_factory = sqlite3.Row
+        try:
+            rows = connection.execute(
+                """
+                SELECT id, text, created_at
+                FROM suggestion
+                WHERE status = 'pending'
+                ORDER BY created_at, id
+                """
+            ).fetchall()
+        finally:
+            connection.close()
+
+        return [
+            {
+                "id": int(row["id"]),
+                "text": str(row["text"]),
+                "created_at": str(row["created_at"]),
+            }
+            for row in rows
+        ]
+
     @app.get("/")
     def dashboard() -> str:
         goal = get_goal_row()
+        pending_suggestions = get_pending_suggestions()
         return render_template(
             "dashboard.html",
             goal_title=goal["title"] or "",
@@ -196,6 +221,8 @@ def create_app(test_config: dict | None = None) -> Flask:
             goal_target_date=goal["target_date"] or "",
             goal_status=goal["status"] or "active",
             heatmap_columns=get_heatmap_columns(),
+            pending_suggestions=pending_suggestions,
+            pending_suggestion_count=len(pending_suggestions),
         )
 
     @app.get("/goal/edit")
