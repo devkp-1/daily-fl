@@ -4,7 +4,9 @@ You are in PLAN mode. Do not write or edit any application code.
 
 ## Your task
 
-1. Read `specs/base-system.md` in full.
+1. Read every file in `specs/` in full (not just one spec file — the
+   project may have multiple specs, e.g. `base-system.md` and
+   `extension.md`; read all of them to understand the full scope).
 2. Read the current contents of `IMPLEMENTATION_PLAN.md`. Treat it as
    possibly incomplete or wrong — don't assume it's accurate just because
    it exists. If source code already exists (e.g. `app.py`, `templates/`,
