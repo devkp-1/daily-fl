@@ -483,7 +483,7 @@ def create_app(test_config: dict | None = None) -> Flask:
             connection.execute("PRAGMA foreign_keys = ON")
             suggestion_row = connection.execute(
                 """
-                SELECT id, text, status
+                SELECT id, status
                 FROM suggestion
                 WHERE id = ?
                 """,
@@ -494,34 +494,9 @@ def create_app(test_config: dict | None = None) -> Flask:
             if suggestion_row["status"] != "pending":
                 return "Suggestion is not pending.", 400
 
-            goal_row = connection.execute(
-                """
-                SELECT description
-                FROM goal
-                WHERE id = 1
-                """
-            ).fetchone()
-            existing_description = str(goal_row["description"]) if goal_row is not None else ""
-            accepted_note = (
-                f"[{today_iso()}] Accepted weekly suggestion: {str(suggestion_row['text']).strip()}"
-            )
-            updated_description = (
-                f"{existing_description}\n{accepted_note}"
-                if existing_description
-                else accepted_note
-            )
-
             connection.execute(
                 "UPDATE suggestion SET status = 'accepted' WHERE id = ?",
                 (suggestion_id,),
-            )
-            connection.execute(
-                """
-                UPDATE goal
-                SET description = ?, updated_at = CURRENT_TIMESTAMP
-                WHERE id = 1
-                """,
-                (updated_description,),
             )
             connection.commit()
         finally:

@@ -923,7 +923,7 @@ class BootstrapTests(unittest.TestCase):
             self.assertNotIn("Rejected change.", body)
             self.assertIn("Still pending change.", body)
 
-    def test_accept_suggestion_marks_accepted_and_appends_goal_description(self) -> None:
+    def test_accept_suggestion_marks_accepted_without_goal_mutation(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             db_path = Path(tmp_dir) / "test_app.db"
             app = create_app({"TESTING": True, "DATABASE": str(db_path)})
@@ -969,8 +969,7 @@ class BootstrapTests(unittest.TestCase):
                 connection.close()
 
             self.assertEqual(updated_status, "accepted")
-            self.assertIn("Existing goal context", updated_goal_description)
-            self.assertIn("Accepted weekly suggestion: Limit active projects to two.", updated_goal_description)
+            self.assertEqual(updated_goal_description, "Existing goal context")
 
     def test_accept_suggestion_rejects_non_pending_status(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
