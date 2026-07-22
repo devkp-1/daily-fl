@@ -1,9 +1,5 @@
 # Implementation Plan (Base System)
 
-Base-system scope is complete and currently has no unfinished implementation items.
-
-Remaining highest-priority items:
-- None.
-
-Notes:
-- Re-verified against `specs/base-system.md` and current code/tests on 2026-07-21; no missing base-system functionality was found.
+1. No remaining implementation tasks for the base system.
+   - Done looks like: all acceptance criteria in `specs/base-system.md` are already satisfied by the current codebase and test suite (`tests/test_bootstrap.py` passes), including goal edit/view, daily entry creation with 0+ preset tags, duplicate-date redirect/edit behavior, 90-day Monday-start heatmap with engagement intensity and empty days, day-details on hover/click for filled cells, and documented local run command in `running.md`.
+   - Assumption (spec ambiguity): interpreted “single documented command” as a single **start** command (`python3 app.py`) after one-time environment setup.
