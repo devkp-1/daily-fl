@@ -28,9 +28,9 @@ Current state check: all `specs/base-system.md` acceptance criteria are already 
    - Added accept route that enforces pending-only processing, marks suggestion `accepted`, and appends the accepted suggestion into goal description with a date-stamped line.
    - Added tests for successful accept (status mutation + goal description append) and 400 on non-pending suggestions.
 
-7. Implement `POST /suggestion/<id>/reject` behavior.
-   - For a pending suggestion, mark `rejected` with no goal mutation; redirect back to dashboard.
-   - Done looks like: DB status changes to rejected and goal description is unchanged.
+7. [x] Implement `POST /suggestion/<id>/reject` behavior.
+   - Added reject route that enforces pending-only processing, marks suggestion `rejected`, and redirects to dashboard without mutating goal data.
+   - Added tests for successful reject behavior and 400 on non-pending suggestions.
 
 8. Add extension-focused tests in `tests/test_bootstrap.py` (or split test module if preferred by project style).
    - Add tests for: weekly-review route persistence (Claude client mocked), 1-3 suggestion creation, dashboard pending indicator rendering, accept path updating status + goal description, reject path updating only status, and missing API key error path.

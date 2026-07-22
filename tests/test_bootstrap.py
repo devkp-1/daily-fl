@@ -909,6 +909,83 @@ class BootstrapTests(unittest.TestCase):
             self.assertEqual(response.status_code, 400)
             self.assertIn("Suggestion is not pending.", response.get_data(as_text=True))
 
+    def test_reject_suggestion_marks_rejected_without_goal_mutation(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            db_path = Path(tmp_dir) / "test_app.db"
+            app = create_app({"TESTING": True, "DATABASE": str(db_path)})
+
+            connection = sqlite3.connect(db_path)
+            try:
+                connection.execute(
+                    "UPDATE goal SET description = ? WHERE id = 1",
+                    ("Goal stays untouched",),
+                )
+                summary_id = connection.execute(
+                    """
+                    INSERT INTO weekly_summary (week_start, week_end, assessment, summary_text)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    ("2026-01-05", "2026-01-11", "on_track", "Summary"),
+                ).lastrowid
+                suggestion_id = connection.execute(
+                    """
+                    INSERT INTO suggestion (weekly_summary_id, text, status)
+                    VALUES (?, ?, 'pending')
+                    """,
+                    (summary_id, "Drop one recurring meeting."),
+                ).lastrowid
+                connection.commit()
+            finally:
+                connection.close()
+
+            response = app.test_client().post(f"/suggestion/{suggestion_id}/reject")
+            self.assertEqual(response.status_code, 302)
+            self.assertTrue(response.headers["Location"].endswith("/"))
+
+            connection = sqlite3.connect(db_path)
+            try:
+                updated_status = connection.execute(
+                    "SELECT status FROM suggestion WHERE id = ?",
+                    (suggestion_id,),
+                ).fetchone()[0]
+                goal_description = connection.execute(
+                    "SELECT description FROM goal WHERE id = 1"
+                ).fetchone()[0]
+            finally:
+                connection.close()
+
+            self.assertEqual(updated_status, "rejected")
+            self.assertEqual(goal_description, "Goal stays untouched")
+
+    def test_reject_suggestion_rejects_non_pending_status(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            db_path = Path(tmp_dir) / "test_app.db"
+            app = create_app({"TESTING": True, "DATABASE": str(db_path)})
+
+            connection = sqlite3.connect(db_path)
+            try:
+                summary_id = connection.execute(
+                    """
+                    INSERT INTO weekly_summary (week_start, week_end, assessment, summary_text)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    ("2026-01-05", "2026-01-11", "on_track", "Summary"),
+                ).lastrowid
+                suggestion_id = connection.execute(
+                    """
+                    INSERT INTO suggestion (weekly_summary_id, text, status)
+                    VALUES (?, ?, 'accepted')
+                    """,
+                    (summary_id, "Already accepted"),
+                ).lastrowid
+                connection.commit()
+            finally:
+                connection.close()
+
+            response = app.test_client().post(f"/suggestion/{suggestion_id}/reject")
+            self.assertEqual(response.status_code, 400)
+            self.assertIn("Suggestion is not pending.", response.get_data(as_text=True))
+
 
 if __name__ == "__main__":
     unittest.main()

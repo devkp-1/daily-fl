@@ -503,6 +503,34 @@ def create_app(test_config: dict | None = None) -> Flask:
 
         return redirect(url_for("dashboard"))
 
+    @app.post("/suggestion/<int:suggestion_id>/reject")
+    def reject_suggestion(suggestion_id: int):
+        connection = sqlite3.connect(app.config["DATABASE"])
+        connection.row_factory = sqlite3.Row
+        try:
+            suggestion_row = connection.execute(
+                """
+                SELECT id, status
+                FROM suggestion
+                WHERE id = ?
+                """,
+                (suggestion_id,),
+            ).fetchone()
+            if suggestion_row is None:
+                return "Suggestion not found.", 404
+            if suggestion_row["status"] != "pending":
+                return "Suggestion is not pending.", 400
+
+            connection.execute(
+                "UPDATE suggestion SET status = 'rejected' WHERE id = ?",
+                (suggestion_id,),
+            )
+            connection.commit()
+        finally:
+            connection.close()
+
+        return redirect(url_for("dashboard"))
+
     return app
 
 
