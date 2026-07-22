@@ -24,10 +24,9 @@ Current state check: all `specs/base-system.md` acceptance criteria are already 
    - Added pending badge/count and a native `<details>` expandable list rendering each pending suggestion with accept/reject POST controls.
    - Added tests confirming indicator/list/action visibility when pending suggestions exist and hidden state when none exist.
 
-6. Implement `POST /suggestion/<id>/accept` behavior.
-   - For a pending suggestion, mark `accepted` and append suggestion text to goal description with a date-stamped separator.
-   - Done looks like: DB shows accepted status and goal description contains appended suggestion text only after explicit accept action.
-   - Assumption: accepted/rejected non-pending suggestions return 400 to prevent silent re-processing.
+6. [x] Implement `POST /suggestion/<id>/accept` behavior.
+   - Added accept route that enforces pending-only processing, marks suggestion `accepted`, and appends the accepted suggestion into goal description with a date-stamped line.
+   - Added tests for successful accept (status mutation + goal description append) and 400 on non-pending suggestions.
 
 7. Implement `POST /suggestion/<id>/reject` behavior.
    - For a pending suggestion, mark `rejected` with no goal mutation; redirect back to dashboard.

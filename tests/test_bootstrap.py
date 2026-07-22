@@ -831,6 +831,84 @@ class BootstrapTests(unittest.TestCase):
             self.assertNotIn('id="pending-suggestion-indicator"', body)
             self.assertNotIn("Review pending suggestions", body)
 
+    def test_accept_suggestion_marks_accepted_and_appends_goal_description(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            db_path = Path(tmp_dir) / "test_app.db"
+            app = create_app({"TESTING": True, "DATABASE": str(db_path)})
+
+            connection = sqlite3.connect(db_path)
+            try:
+                connection.execute(
+                    "UPDATE goal SET description = ? WHERE id = 1",
+                    ("Existing goal context",),
+                )
+                summary_id = connection.execute(
+                    """
+                    INSERT INTO weekly_summary (week_start, week_end, assessment, summary_text)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    ("2026-01-05", "2026-01-11", "on_track", "Summary"),
+                ).lastrowid
+                suggestion_id = connection.execute(
+                    """
+                    INSERT INTO suggestion (weekly_summary_id, text, status)
+                    VALUES (?, ?, 'pending')
+                    """,
+                    (summary_id, "Limit active projects to two."),
+                ).lastrowid
+                connection.commit()
+            finally:
+                connection.close()
+
+            response = app.test_client().post(f"/suggestion/{suggestion_id}/accept")
+            self.assertEqual(response.status_code, 302)
+            self.assertTrue(response.headers["Location"].endswith("/"))
+
+            connection = sqlite3.connect(db_path)
+            try:
+                updated_goal_description = connection.execute(
+                    "SELECT description FROM goal WHERE id = 1"
+                ).fetchone()[0]
+                updated_status = connection.execute(
+                    "SELECT status FROM suggestion WHERE id = ?",
+                    (suggestion_id,),
+                ).fetchone()[0]
+            finally:
+                connection.close()
+
+            self.assertEqual(updated_status, "accepted")
+            self.assertIn("Existing goal context", updated_goal_description)
+            self.assertIn("Accepted weekly suggestion: Limit active projects to two.", updated_goal_description)
+
+    def test_accept_suggestion_rejects_non_pending_status(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            db_path = Path(tmp_dir) / "test_app.db"
+            app = create_app({"TESTING": True, "DATABASE": str(db_path)})
+
+            connection = sqlite3.connect(db_path)
+            try:
+                summary_id = connection.execute(
+                    """
+                    INSERT INTO weekly_summary (week_start, week_end, assessment, summary_text)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    ("2026-01-05", "2026-01-11", "on_track", "Summary"),
+                ).lastrowid
+                suggestion_id = connection.execute(
+                    """
+                    INSERT INTO suggestion (weekly_summary_id, text, status)
+                    VALUES (?, ?, 'rejected')
+                    """,
+                    (summary_id, "Already rejected"),
+                ).lastrowid
+                connection.commit()
+            finally:
+                connection.close()
+
+            response = app.test_client().post(f"/suggestion/{suggestion_id}/accept")
+            self.assertEqual(response.status_code, 400)
+            self.assertIn("Suggestion is not pending.", response.get_data(as_text=True))
+
 
 if __name__ == "__main__":
     unittest.main()
