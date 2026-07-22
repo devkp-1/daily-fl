@@ -10,10 +10,9 @@ Current state check: all `specs/base-system.md` acceptance criteria are already 
    - Implemented `weekly_review.py` helper wiring with optional `.env` loading (via `python-dotenv` when installed), strict `ANTHROPIC_API_KEY` lookup, and explicit configuration errors for missing key or missing `anthropic` package.
    - Wired app startup config with `WEEKLY_REVIEW_CLIENT_FACTORY` to keep one canonical weekly-review client construction path.
 
-3. Implement weekly-review service logic (data collection + prompt + response validation).
-   - Build a helper that gathers current goal, full entry history (with tags), and prior weekly summaries; computes rolling 7-day window ending today; calls Claude with “propose, not decide” prompt instructions; validates assessment enum and 1-3 suggestions before persistence.
-   - Done looks like: helper returns a normalized payload (`assessment`, `summary_text`, `suggestions[1..3]`) suitable for DB insert or raises a clear error on malformed model output.
-   - Assumption: model output will be required in strict JSON shape to avoid brittle free-text parsing.
+3. [x] Implement weekly-review service logic (data collection + prompt + response validation).
+   - Implemented `generate_weekly_review(...)` in `weekly_review.py`, including DB context collection (goal + full entry history with tags + prior weekly summaries), rolling 7-day window computation, Claude prompt construction with “propose, not decide” guardrails, strict JSON parsing, and normalization/validation of assessment + 1-3 suggestions.
+   - Added tests covering normalized payload generation, week-window calculation, prompt context inclusion, and malformed model output rejection.
 
 4. Implement `POST /weekly-review` route and transactional writes.
    - Wire dashboard button trigger to create one `weekly_summary` row plus 1-3 `suggestion` rows (`pending`) in a single transaction, then redirect to `/`.

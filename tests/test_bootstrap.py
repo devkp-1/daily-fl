@@ -9,7 +9,9 @@ from unittest.mock import patch
 from app import create_app
 from weekly_review import (
     WeeklyReviewConfigurationError,
+    WeeklyReviewResponseError,
     create_anthropic_client,
+    generate_weekly_review,
     load_weekly_review_api_key,
 )
 
@@ -598,6 +600,101 @@ class BootstrapTests(unittest.TestCase):
                 client = create_anthropic_client()
 
         self.assertEqual(client.api_key, "live-key")
+
+    def test_generate_weekly_review_collects_context_and_returns_normalized_payload(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            db_path = Path(tmp_dir) / "test_app.db"
+            create_app({"TESTING": True, "DATABASE": str(db_path)})
+
+            connection = sqlite3.connect(db_path)
+            try:
+                connection.execute(
+                    """
+                    UPDATE goal
+                    SET title = ?, description = ?, target_date = ?, status = ?
+                    WHERE id = 1
+                    """,
+                    ("Ship launch", "Complete core milestones", "2026-12-31", "active"),
+                )
+                entry_cursor = connection.execute(
+                    "INSERT INTO entry (date, notes, reflection, engagement) VALUES (?, ?, ?, ?)",
+                    ("2026-01-10", "Shipped draft", "Strong momentum", 4),
+                )
+                connection.execute(
+                    "INSERT INTO entry_tag (entry_id, tag) VALUES (?, ?)",
+                    (entry_cursor.lastrowid, "focused"),
+                )
+                connection.execute(
+                    """
+                    INSERT INTO weekly_summary (week_start, week_end, assessment, summary_text)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    ("2026-01-01", "2026-01-07", "on_track", "Previous summary"),
+                )
+                connection.commit()
+            finally:
+                connection.close()
+
+            captured_prompt: dict[str, str] = {}
+
+            class FakeTextBlock:
+                def __init__(self, text: str):
+                    self.text = text
+
+            class FakeMessages:
+                def create(self, **kwargs):
+                    captured_prompt["content"] = kwargs["messages"][0]["content"]
+                    return type("Response", (), {"content": [FakeTextBlock(
+                        '{"assessment":"ahead","summary_text":"Great follow-through.","suggestions":["Protect deep work blocks.","Trim one lower-priority deliverable."]}'
+                    )]})()
+
+            class FakeClient:
+                messages = FakeMessages()
+
+            payload = generate_weekly_review(
+                database_path=str(db_path),
+                client_factory=lambda: FakeClient(),
+                run_day=date(2026, 1, 11),
+            )
+
+            self.assertEqual(payload["assessment"], "ahead")
+            self.assertEqual(payload["week_start"], "2026-01-05")
+            self.assertEqual(payload["week_end"], "2026-01-11")
+            self.assertEqual(
+                payload["suggestions"],
+                ["Protect deep work blocks.", "Trim one lower-priority deliverable."],
+            )
+            self.assertIn("Ship launch", captured_prompt["content"])
+            self.assertIn("Shipped draft", captured_prompt["content"])
+            self.assertIn("Previous summary", captured_prompt["content"])
+
+    def test_generate_weekly_review_rejects_malformed_model_output(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            db_path = Path(tmp_dir) / "test_app.db"
+            create_app({"TESTING": True, "DATABASE": str(db_path)})
+
+            class FakeTextBlock:
+                def __init__(self, text: str):
+                    self.text = text
+
+            class FakeMessages:
+                def create(self, **kwargs):
+                    return type("Response", (), {"content": [FakeTextBlock(
+                        '{"assessment":"off_track","summary_text":"Bad enum","suggestions":[]}'
+                    )]})()
+
+            class FakeClient:
+                messages = FakeMessages()
+
+            with self.assertRaisesRegex(
+                WeeklyReviewResponseError,
+                "assessment must be one of",
+            ):
+                generate_weekly_review(
+                    database_path=str(db_path),
+                    client_factory=lambda: FakeClient(),
+                    run_day=date(2026, 1, 11),
+                )
 
 
 if __name__ == "__main__":
