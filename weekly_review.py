@@ -78,15 +78,28 @@ def _extract_text_content(message_response: Any) -> str:
 
     return "\n".join(text_parts)
 
+def _strip_markdown_fences(model_text: str) -> str:
+    text = model_text.strip()
+    if text.startswith("```"):
+        # Drop the opening fence line (``` or ```json)
+        text = text.split("\n", 1)[1] if "\n" in text else ""
+        # Drop the closing fence
+        if text.endswith("```"):
+            text = text[: -len("```")]
+    return text.strip()
+
 
 def _normalize_model_payload(model_text: str) -> dict[str, Any]:
+    cleaned_text = _strip_markdown_fences(model_text)
     try:
-        payload = json.loads(model_text)
+        payload = json.loads(cleaned_text)
     except json.JSONDecodeError as exc:
         raise WeeklyReviewResponseError("Model response was not valid JSON.") from exc
 
     if not isinstance(payload, dict):
-        raise WeeklyReviewResponseError("Model response must be a JSON object.")
+        raise WeeklyReviewResponseError(
+            f"Model response was not valid JSON. Raw response: {model_text[:200]}"
+        ) from exc
 
     assessment = payload.get("assessment")
     if assessment not in {"ahead", "on_track", "behind"}:
