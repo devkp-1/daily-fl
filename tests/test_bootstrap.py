@@ -696,6 +696,95 @@ class BootstrapTests(unittest.TestCase):
                     run_day=date(2026, 1, 11),
                 )
 
+    def test_post_weekly_review_persists_summary_and_pending_suggestions(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            db_path = Path(tmp_dir) / "test_app.db"
+
+            def fake_generator(*, database_path: str, client_factory):
+                self.assertEqual(database_path, str(db_path))
+                self.assertTrue(callable(client_factory))
+                return {
+                    "week_start": "2026-01-05",
+                    "week_end": "2026-01-11",
+                    "assessment": "on_track",
+                    "summary_text": "Steady consistency with minor misses.",
+                    "suggestions": [
+                        "Protect two focused mornings.",
+                        "Trim one non-critical commitment.",
+                    ],
+                }
+
+            app = create_app(
+                {
+                    "TESTING": True,
+                    "DATABASE": str(db_path),
+                    "WEEKLY_REVIEW_GENERATOR": fake_generator,
+                }
+            )
+            response = app.test_client().post("/weekly-review")
+
+            self.assertEqual(response.status_code, 302)
+            self.assertTrue(response.headers["Location"].endswith("/"))
+
+            connection = sqlite3.connect(db_path)
+            try:
+                summary = connection.execute(
+                    """
+                    SELECT week_start, week_end, assessment, summary_text
+                    FROM weekly_summary
+                    """
+                ).fetchone()
+                suggestions = connection.execute(
+                    "SELECT text, status FROM suggestion ORDER BY id"
+                ).fetchall()
+            finally:
+                connection.close()
+
+            self.assertEqual(
+                summary,
+                ("2026-01-05", "2026-01-11", "on_track", "Steady consistency with minor misses."),
+            )
+            self.assertEqual(
+                suggestions,
+                [
+                    ("Protect two focused mornings.", "pending"),
+                    ("Trim one non-critical commitment.", "pending"),
+                ],
+            )
+
+    def test_post_weekly_review_rolls_back_when_suggestion_insert_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            db_path = Path(tmp_dir) / "test_app.db"
+
+            def failing_generator(*, database_path: str, client_factory):
+                return {
+                    "week_start": "2026-01-05",
+                    "week_end": "2026-01-11",
+                    "assessment": "behind",
+                    "summary_text": "Needs tighter execution next week.",
+                    "suggestions": ["Valid suggestion", None],
+                }
+
+            app = create_app(
+                {
+                    "TESTING": True,
+                    "DATABASE": str(db_path),
+                    "WEEKLY_REVIEW_GENERATOR": failing_generator,
+                }
+            )
+            with self.assertRaises(sqlite3.IntegrityError):
+                app.test_client().post("/weekly-review")
+
+            connection = sqlite3.connect(db_path)
+            try:
+                summary_count = connection.execute("SELECT COUNT(*) FROM weekly_summary").fetchone()[0]
+                suggestion_count = connection.execute("SELECT COUNT(*) FROM suggestion").fetchone()[0]
+            finally:
+                connection.close()
+
+            self.assertEqual(summary_count, 0)
+            self.assertEqual(suggestion_count, 0)
+
 
 if __name__ == "__main__":
     unittest.main()

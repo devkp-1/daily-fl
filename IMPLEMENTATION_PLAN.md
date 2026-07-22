@@ -14,9 +14,10 @@ Current state check: all `specs/base-system.md` acceptance criteria are already 
    - Implemented `generate_weekly_review(...)` in `weekly_review.py`, including DB context collection (goal + full entry history with tags + prior weekly summaries), rolling 7-day window computation, Claude prompt construction with “propose, not decide” guardrails, strict JSON parsing, and normalization/validation of assessment + 1-3 suggestions.
    - Added tests covering normalized payload generation, week-window calculation, prompt context inclusion, and malformed model output rejection.
 
-4. Implement `POST /weekly-review` route and transactional writes.
-   - Wire dashboard button trigger to create one `weekly_summary` row plus 1-3 `suggestion` rows (`pending`) in a single transaction, then redirect to `/`.
-   - Done looks like: one click produces persisted summary + suggestions for that run; partial writes do not occur on failure.
+4. [x] Implement `POST /weekly-review` route and transactional writes.
+   - Added `POST /weekly-review` that invokes the configured review generator/client factory, inserts one `weekly_summary` row plus pending `suggestion` rows, and redirects to `/`.
+   - Route now rolls back the transaction on any write failure to prevent partial persistence.
+   - Added route tests for successful persistence and rollback on mid-transaction failure.
 
 5. Extend dashboard UI for review trigger + pending suggestion indicator/list.
    - Add “Run weekly review” control and a pending badge/count near goal section; render pending suggestions with accept/reject controls that post to their routes.

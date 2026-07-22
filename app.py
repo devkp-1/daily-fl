@@ -5,7 +5,12 @@ from datetime import date, timedelta
 from flask import Flask, redirect, render_template, request, url_for
 
 from db import ensure_database
-from weekly_review import create_anthropic_client
+from weekly_review import (
+    WeeklyReviewConfigurationError,
+    WeeklyReviewResponseError,
+    create_anthropic_client,
+    generate_weekly_review,
+)
 
 
 def create_app(test_config: dict | None = None) -> Flask:
@@ -13,6 +18,7 @@ def create_app(test_config: dict | None = None) -> Flask:
     app.config.from_mapping(
         DATABASE=str(Path(__file__).resolve().parent / "app.db"),
         WEEKLY_REVIEW_CLIENT_FACTORY=create_anthropic_client,
+        WEEKLY_REVIEW_GENERATOR=generate_weekly_review,
     )
 
     if test_config:
@@ -366,6 +372,51 @@ def create_app(test_config: dict | None = None) -> Flask:
                     (entry["id"], tag),
                 )
             connection.commit()
+        finally:
+            connection.close()
+
+        return redirect(url_for("dashboard"))
+
+    @app.post("/weekly-review")
+    def run_weekly_review():
+        review_generator = app.config["WEEKLY_REVIEW_GENERATOR"]
+        review_client_factory = app.config["WEEKLY_REVIEW_CLIENT_FACTORY"]
+        try:
+            review_payload = review_generator(
+                database_path=app.config["DATABASE"],
+                client_factory=review_client_factory,
+            )
+        except (WeeklyReviewConfigurationError, WeeklyReviewResponseError) as exc:
+            return str(exc), 500
+
+        connection = sqlite3.connect(app.config["DATABASE"])
+        try:
+            connection.execute("PRAGMA foreign_keys = ON")
+            summary_cursor = connection.execute(
+                """
+                INSERT INTO weekly_summary (week_start, week_end, assessment, summary_text)
+                VALUES (?, ?, ?, ?)
+                """,
+                (
+                    review_payload["week_start"],
+                    review_payload["week_end"],
+                    review_payload["assessment"],
+                    review_payload["summary_text"],
+                ),
+            )
+            weekly_summary_id = summary_cursor.lastrowid
+            for suggestion_text in review_payload["suggestions"]:
+                connection.execute(
+                    """
+                    INSERT INTO suggestion (weekly_summary_id, text, status)
+                    VALUES (?, ?, 'pending')
+                    """,
+                    (weekly_summary_id, suggestion_text),
+                )
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
         finally:
             connection.close()
 
