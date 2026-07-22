@@ -9,41 +9,51 @@
 <body>
     <main>
         <h1>Personal Productivity Loop</h1>
-        <p>Goal title: {{ goal_title }}</p>
-        <p>Goal description: {{ goal_description }}</p>
-        <p>Goal target date: {{ goal_target_date }}</p>
-        <p>Goal status: {{ goal_status }}</p>
-        <p><a href="{{ url_for('edit_goal') }}">Edit goal</a></p>
-        <form method="post" action="{{ url_for('run_weekly_review') }}">
-            <button type="submit">Run weekly review</button>
-        </form>
+        <section class="goal-card" aria-label="Current goal summary">
+            <h2>Current Goal</h2>
+            <p>Goal title: {{ goal_title }}</p>
+            <p>Goal description: {{ goal_description }}</p>
+            <p>Goal target date: {{ goal_target_date }}</p>
+            <p>Goal status: {{ goal_status }}</p>
+            <div class="goal-actions">
+                <p><a href="{{ url_for('edit_goal') }}">Edit goal</a></p>
+                <form method="post" action="{{ url_for('run_weekly_review') }}">
+                    <button type="submit">Run weekly review</button>
+                </form>
+            </div>
+        </section>
         {% if pending_suggestion_count > 0 %}
-        <p>
-            <strong id="pending-suggestion-indicator">
-                Pending suggestions: {{ pending_suggestion_count }}
-            </strong>
-        </p>
-        <details>
-            <summary>Review pending suggestions</summary>
-            <ul>
-                {% for suggestion in pending_suggestions %}
-                <li>
-                    <p>{{ suggestion.text }}</p>
-                    <form method="post" action="/suggestion/{{ suggestion.id }}/accept">
-                        <button type="submit">Accept ✓</button>
-                    </form>
-                    <form method="post" action="/suggestion/{{ suggestion.id }}/reject">
-                        <button type="submit">Reject ✗</button>
-                    </form>
-                </li>
-                {% endfor %}
-            </ul>
-        </details>
+        <section class="pending-suggestions" aria-label="Pending suggestions">
+            <p>
+                <strong id="pending-suggestion-indicator">
+                    Pending suggestions: {{ pending_suggestion_count }}
+                </strong>
+            </p>
+            <details>
+                <summary>Review pending suggestions</summary>
+                <ul>
+                    {% for suggestion in pending_suggestions %}
+                    <li class="pending-suggestion-item">
+                        <p>{{ suggestion.text }}</p>
+                        <div class="suggestion-actions">
+                            <form method="post" action="/suggestion/{{ suggestion.id }}/accept">
+                                <button type="submit">Accept ✓</button>
+                            </form>
+                            <form method="post" action="/suggestion/{{ suggestion.id }}/reject">
+                                <button type="submit">Reject ✗</button>
+                            </form>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </details>
+        </section>
         {% endif %}
         <p><a href="{{ url_for('new_entry') }}">Log today</a></p>
 
-        <section aria-label="Last 90 days heatmap">
-            <h2>Last 90 Days</h2>
+        <section class="activity-section" aria-label="Last 90 days heatmap">
+            <h2>Activity</h2>
+            <p class="section-subtitle">Last 90 days</p>
             <div class="heatmap-legend" aria-label="Heatmap legend">
                 <span class="legend-label">Less</span>
                 <span class="legend-swatch intensity-0" title="No entry"></span>
@@ -82,6 +92,18 @@
                 <p><strong>Tags:</strong> <span id="day-details-tags">—</span></p>
             </section>
         </section>
+        {% if accepted_suggestions %}
+        <section class="accepted-suggestions" aria-label="Accepted suggestions history">
+            <details>
+                <summary>Accepted suggestions history ({{ accepted_suggestions|length }})</summary>
+                <ul>
+                    {% for suggestion in accepted_suggestions %}
+                    <li>{{ suggestion.text }}</li>
+                    {% endfor %}
+                </ul>
+            </details>
+        </section>
+        {% endif %}
     </main>
     <script>
         (() => {

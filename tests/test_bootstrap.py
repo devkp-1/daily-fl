@@ -884,6 +884,45 @@ class BootstrapTests(unittest.TestCase):
             self.assertNotIn('id="pending-suggestion-indicator"', body)
             self.assertNotIn("Review pending suggestions", body)
 
+    def test_dashboard_shows_collapsed_accepted_suggestions_history(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            db_path = Path(tmp_dir) / "test_app.db"
+            app = create_app({"TESTING": True, "DATABASE": str(db_path)})
+
+            connection = sqlite3.connect(db_path)
+            try:
+                summary_id = connection.execute(
+                    """
+                    INSERT INTO weekly_summary (week_start, week_end, assessment, summary_text)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    ("2026-01-05", "2026-01-11", "on_track", "Summary"),
+                ).lastrowid
+                connection.execute(
+                    "INSERT INTO suggestion (weekly_summary_id, text, status) VALUES (?, ?, ?)",
+                    (summary_id, "Accepted change one.", "accepted"),
+                )
+                connection.execute(
+                    "INSERT INTO suggestion (weekly_summary_id, text, status) VALUES (?, ?, ?)",
+                    (summary_id, "Still pending change.", "pending"),
+                )
+                connection.execute(
+                    "INSERT INTO suggestion (weekly_summary_id, text, status) VALUES (?, ?, ?)",
+                    (summary_id, "Rejected change.", "rejected"),
+                )
+                connection.commit()
+            finally:
+                connection.close()
+
+            response = app.test_client().get("/")
+            body = response.get_data(as_text=True)
+
+            self.assertEqual(response.status_code, 200)
+            self.assertIn("Accepted suggestions history (1)", body)
+            self.assertIn("Accepted change one.", body)
+            self.assertNotIn("Rejected change.", body)
+            self.assertIn("Still pending change.", body)
+
     def test_accept_suggestion_marks_accepted_and_appends_goal_description(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             db_path = Path(tmp_dir) / "test_app.db"

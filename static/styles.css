@@ -42,6 +42,10 @@ h2 {
     margin-bottom: 8px;
 }
 
+p {
+    margin: 0 0 8px;
+}
+
 a {
     color: var(--accent);
     text-decoration: none;
@@ -62,6 +66,68 @@ a:hover {
     max-width: 680px;
     padding: 20px;
     margin-bottom: 20px;
+}
+
+.goal-card,
+.pending-suggestions,
+.activity-section,
+.accepted-suggestions {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+    margin-bottom: 16px;
+    padding: 16px 18px;
+}
+
+.goal-actions {
+    align-items: center;
+    display: flex;
+    gap: 16px;
+    margin-top: 10px;
+}
+
+.goal-actions p {
+    margin: 0;
+}
+
+button {
+    background: var(--accent);
+    border: 0;
+    border-radius: 6px;
+    color: #fff;
+    cursor: pointer;
+    font: inherit;
+    font-weight: 600;
+    padding: 8px 14px;
+    transition: background 0.15s ease;
+}
+
+button:hover {
+    background: var(--accent-hover);
+}
+
+.pending-suggestion-item {
+    margin-bottom: 12px;
+}
+
+.pending-suggestion-item p {
+    margin-bottom: 6px;
+}
+
+.suggestion-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.suggestion-actions form {
+    margin: 0;
+}
+
+.section-subtitle {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    margin-top: -2px;
 }
 
 .form-card label {
@@ -224,11 +290,9 @@ a:hover {
 }
 
 .day-details {
-    background: var(--card-bg);
-    border: 1px solid var(--border);
+    background: #fbfcff;
+    border: 1px solid #dbe2ee;
     border-radius: 10px;
-    box-shadow: var(--shadow);
     margin-top: 20px;
-    max-width: 680px;
     padding: 16px 18px;
 }
