@@ -32,9 +32,9 @@ Current state check: all `specs/base-system.md` acceptance criteria are already 
    - Added reject route that enforces pending-only processing, marks suggestion `rejected`, and redirects to dashboard without mutating goal data.
    - Added tests for successful reject behavior and 400 on non-pending suggestions.
 
-8. Add extension-focused tests in `tests/test_bootstrap.py` (or split test module if preferred by project style).
-   - Add tests for: weekly-review route persistence (Claude client mocked), 1-3 suggestion creation, dashboard pending indicator rendering, accept path updating status + goal description, reject path updating only status, and missing API key error path.
-   - Done looks like: test suite passes and explicitly covers extension acceptance criteria without live API calls.
+8. [x] Add extension-focused tests in `tests/test_bootstrap.py` (or split test module if preferred by project style).
+   - Added tests for mocked-Claude weekly review persistence, 1-3 suggestion creation, dashboard pending indicator/list rendering, accept status+goal mutation, reject status-only mutation, rollback guarantees, and missing API key server-error path.
+   - Extension behavior is now covered without live API calls.
 
 9. Update run/setup docs for extension dependencies and env setup (`running.md`).
    - Document installing added packages, creating `.env` with Claude key, and running the same app start command.

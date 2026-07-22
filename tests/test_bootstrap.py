@@ -752,6 +752,47 @@ class BootstrapTests(unittest.TestCase):
                 ],
             )
 
+    def test_post_weekly_review_with_mocked_claude_client_persists_1_to_3_suggestions(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            db_path = Path(tmp_dir) / "test_app.db"
+
+            class FakeTextBlock:
+                def __init__(self, text: str):
+                    self.text = text
+
+            class FakeMessages:
+                def create(self, **kwargs):
+                    return type("Response", (), {"content": [FakeTextBlock(
+                        '{"assessment":"on_track","summary_text":"Consistent week.","suggestions":["Keep the morning planning block.","Cut one low-value task.","Protect one recovery block."]}'
+                    )]})()
+
+            class FakeClient:
+                messages = FakeMessages()
+
+            app = create_app(
+                {
+                    "TESTING": True,
+                    "DATABASE": str(db_path),
+                    "WEEKLY_REVIEW_CLIENT_FACTORY": lambda: FakeClient(),
+                }
+            )
+            response = app.test_client().post("/weekly-review")
+            self.assertEqual(response.status_code, 302)
+
+            connection = sqlite3.connect(db_path)
+            try:
+                summary = connection.execute(
+                    "SELECT assessment, summary_text FROM weekly_summary"
+                ).fetchone()
+                suggestion_count = connection.execute(
+                    "SELECT COUNT(*) FROM suggestion"
+                ).fetchone()[0]
+            finally:
+                connection.close()
+
+            self.assertEqual(summary, ("on_track", "Consistent week."))
+            self.assertEqual(suggestion_count, 3)
+
     def test_post_weekly_review_rolls_back_when_suggestion_insert_fails(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             db_path = Path(tmp_dir) / "test_app.db"
@@ -784,6 +825,18 @@ class BootstrapTests(unittest.TestCase):
 
             self.assertEqual(summary_count, 0)
             self.assertEqual(suggestion_count, 0)
+
+    def test_post_weekly_review_returns_500_when_api_key_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            db_path = Path(tmp_dir) / "test_app.db"
+            app = create_app({"TESTING": True, "DATABASE": str(db_path)})
+
+            with patch.dict("os.environ", {}, clear=True):
+                with patch("weekly_review.importlib.import_module", side_effect=ModuleNotFoundError()):
+                    response = app.test_client().post("/weekly-review")
+
+            self.assertEqual(response.status_code, 500)
+            self.assertIn("ANTHROPIC_API_KEY", response.get_data(as_text=True))
 
     def test_dashboard_shows_pending_suggestion_indicator_and_controls(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
