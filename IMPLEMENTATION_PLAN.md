@@ -2,9 +2,9 @@
 
 Current state check: all `specs/base-system.md` acceptance criteria are already implemented and covered by existing behavior/tests. Remaining work is Step 2 (`specs/extension.md`).
 
-1. Add extension schema bootstrap for weekly review persistence (`db.py`).
-   - Implement `weekly_summary` and `suggestion` tables with required enums/fields, FK from `suggestion.weekly_summary_id`, and safe bootstrap behavior for existing DBs.
-   - Done looks like: starting the app creates/retains these tables, and schema-level constraints reject invalid assessment/status values.
+1. [x] Add extension schema bootstrap for weekly review persistence (`db.py`).
+   - Implemented `weekly_summary` and `suggestion` tables with required enums/fields, FK from `suggestion.weekly_summary_id`, and safe `CREATE TABLE IF NOT EXISTS` bootstrap behavior for existing DBs.
+   - Covered by schema bootstrap tests that verify table creation plus invalid assessment/status and FK constraint failures.
 
 2. Add configuration/loading for AI review dependencies and API key handling.
    - Add `anthropic` and `.env` loading path (`python-dotenv` or explicit `os.environ` flow) in app startup/review helper code; fail explicitly when key is missing.

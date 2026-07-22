@@ -44,6 +44,25 @@ def ensure_database(database_path: str) -> None:
                 UNIQUE (entry_id, tag),
                 FOREIGN KEY (entry_id) REFERENCES entry (id) ON DELETE CASCADE
             );
+
+            CREATE TABLE IF NOT EXISTS weekly_summary (
+                id INTEGER PRIMARY KEY,
+                week_start TEXT NOT NULL,
+                week_end TEXT NOT NULL,
+                assessment TEXT NOT NULL CHECK (assessment IN ('ahead', 'on_track', 'behind')),
+                summary_text TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS suggestion (
+                id INTEGER PRIMARY KEY,
+                weekly_summary_id INTEGER NOT NULL,
+                text TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'pending'
+                    CHECK (status IN ('pending', 'accepted', 'rejected')),
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (weekly_summary_id) REFERENCES weekly_summary (id) ON DELETE CASCADE
+            );
             """
         )
         connection.execute(

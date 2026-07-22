@@ -149,9 +149,17 @@ class BootstrapTests(unittest.TestCase):
                 connection.execute("PRAGMA foreign_keys = ON")
 
                 table_rows = connection.execute(
-                    "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('goal', 'entry', 'entry_tag')"
+                    """
+                    SELECT name
+                    FROM sqlite_master
+                    WHERE type = 'table'
+                      AND name IN ('goal', 'entry', 'entry_tag', 'weekly_summary', 'suggestion')
+                    """
                 ).fetchall()
-                self.assertEqual({row[0] for row in table_rows}, {"goal", "entry", "entry_tag"})
+                self.assertEqual(
+                    {row[0] for row in table_rows},
+                    {"goal", "entry", "entry_tag", "weekly_summary", "suggestion"},
+                )
 
                 connection.execute(
                     "INSERT INTO entry (date, notes, reflection, engagement) VALUES (?, ?, ?, ?)",
@@ -198,6 +206,46 @@ class BootstrapTests(unittest.TestCase):
                     (entry_id,),
                 ).fetchone()[0]
                 self.assertEqual(remaining_tags, 0)
+
+                summary_cursor = connection.execute(
+                    """
+                    INSERT INTO weekly_summary (week_start, week_end, assessment, summary_text)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    ("2026-01-05", "2026-01-11", "on_track", "Solid consistency this week."),
+                )
+                weekly_summary_id = summary_cursor.lastrowid
+
+                with self.assertRaises(sqlite3.IntegrityError):
+                    connection.execute(
+                        """
+                        INSERT INTO weekly_summary (week_start, week_end, assessment, summary_text)
+                        VALUES (?, ?, ?, ?)
+                        """,
+                        ("2026-01-12", "2026-01-18", "off_track", "Invalid assessment"),
+                    )
+
+                connection.execute(
+                    "INSERT INTO suggestion (weekly_summary_id, text) VALUES (?, ?)",
+                    (weekly_summary_id, "Reduce scope for one deliverable next week."),
+                )
+                with self.assertRaises(sqlite3.IntegrityError):
+                    connection.execute(
+                        "INSERT INTO suggestion (weekly_summary_id, text, status) VALUES (?, ?, ?)",
+                        (weekly_summary_id, "Invalid status proposal", "unknown"),
+                    )
+                with self.assertRaises(sqlite3.IntegrityError):
+                    connection.execute(
+                        "INSERT INTO suggestion (weekly_summary_id, text) VALUES (?, ?)",
+                        (9999, "Orphan suggestion should fail"),
+                    )
+
+                connection.execute("DELETE FROM weekly_summary WHERE id = ?", (weekly_summary_id,))
+                remaining_suggestions = connection.execute(
+                    "SELECT COUNT(*) FROM suggestion WHERE weekly_summary_id = ?",
+                    (weekly_summary_id,),
+                ).fetchone()[0]
+                self.assertEqual(remaining_suggestions, 0)
             finally:
                 connection.close()
 
