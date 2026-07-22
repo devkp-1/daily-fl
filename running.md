@@ -8,6 +8,14 @@ python3 -m venv .venv
 python3 -m pip install flask anthropic python-dotenv
 ```
 
+Configure weekly review API access:
+
+```bash
+cat > .env <<'EOF'
+ANTHROPIC_API_KEY=your_real_key_here
+EOF
+```
+
 Start the app:
 
 ```bash
