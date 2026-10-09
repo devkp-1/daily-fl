@@ -3,15 +3,15 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Edit Goal - Personal Productivity Loop</title>
+    <title>{{ heading }} - Personal Productivity Loop</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body>
     <main>
-        <h1>Edit Goal</h1>
-        <form method="post" action="{{ url_for('save_goal') }}" class="form-card">
+        <h1>{{ heading }}</h1>
+        <form method="post" action="{{ action }}" class="form-card">
             <label for="title">Title</label>
-            <input id="title" name="title" type="text" value="{{ goal_title }}">
+            <input id="title" name="title" type="text" required value="{{ goal_title }}">
 
             <label for="description">Description</label>
             <textarea id="description" name="description" rows="5">{{ goal_description }}</textarea>
@@ -25,6 +25,16 @@
                 <option value="{{ status_option }}"{% if goal_status == status_option %} selected{% endif %}>{{ status_option.capitalize() }}</option>
                 {% endfor %}
             </select>
+
+            <label for="priority">Priority</label>
+            <select id="priority" name="priority">
+                {% for priority_option in goal_priority_options %}
+                <option value="{{ priority_option }}"{% if goal_priority == priority_option %} selected{% endif %}>{{ priority_option.capitalize() }}</option>
+                {% endfor %}
+            </select>
+
+            <label for="weekly_target_hours">Weekly target hours (optional)</label>
+            <input id="weekly_target_hours" name="weekly_target_hours" type="number" min="0" max="168" step="0.25" value="{{ goal_weekly_target_hours }}">
 
             <div class="form-actions">
                 <button type="submit">Save goal</button>

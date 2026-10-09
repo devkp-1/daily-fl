@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Productivity Loop{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="app-shell">
+        <nav class="app-nav" aria-label="Primary navigation">
+            <div class="app-nav-brand">PL</div>
+            <a class="app-nav-item app-nav-item-active" href="{{ url_for('preview_home') }}">
+                <span class="app-nav-icon">⌂</span>
+                <span class="app-nav-label">Home</span>
+            </a>
+        </nav>
+        <div class="app-main">
+            <header class="app-topbar">
+                <div class="app-topbar-title">{% block topbar_title %}Home{% endblock %}</div>
+                <div class="app-topbar-actions">
+                    {% block topbar_actions %}
+                    <button type="button" class="btn btn-accent">+ New Goal</button>
+                    {% endblock %}
+                </div>
+            </header>
+            <main class="app-content">
+                {% block content %}{% endblock %}
+            </main>
+        </div>
+    </div>
+</body>
+</html>

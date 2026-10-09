@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="hero-strip" aria-label="Today and streaks">
+    <div class="hero-today">
+        <span class="hero-today-label">Today</span>
+        <span class="hero-today-date">{{ today_display }}</span>
+    </div>
+    <div class="hero-streaks">
+        {% for streak in mock_streaks %}
+        <div class="streak-chip">
+            <span class="streak-chip-label">{{ streak.name }}</span>
+            <span class="streak-chip-day">Day {{ streak.day }} of {{ streak.total }}</span>
+            <div class="streak-chip-forecast">
+                {% for level in streak.forecast %}
+                <span class="forecast-dot intensity-{{ level }}"></span>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+
+<section class="workspace">
+    <aside class="goals-panel" aria-label="Goals">
+        <div class="goals-panel-header">
+            <h2>Goals</h2>
+            <div class="goals-panel-controls">
+                <button type="button" class="icon-btn" title="Sort">⇅</button>
+                <button type="button" class="icon-btn" title="Add goal">+</button>
+            </div>
+        </div>
+        {% if mock_goals %}
+        <div class="goal-list">
+            {% for goal in mock_goals %}
+            <div class="goal-card">
+                <span class="goal-card-name">{{ goal.name }}</span>
+                <span class="goal-card-date">{{ goal.date }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <p>No current goals logged, click somewhere to add one!</p>
+        </div>
+        {% endif %}
+    </aside>
+
+    <section class="activity-panel" aria-label="Activity">
+        <div class="activity-panel-header">
+            <h2>Activity</h2>
+            <span class="activity-panel-subtitle">Last 6 months</span>
+        </div>
+        <div class="heatmap-preview">
+            {% for column in mock_heatmap %}
+            <div class="heatmap-column">
+                {% for level in column %}
+                <span class="heatmap-cell intensity-{{ level }}"></span>
+                {% endfor %}
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+</section>
+{% endblock %}

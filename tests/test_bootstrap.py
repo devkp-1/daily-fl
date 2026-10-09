@@ -10,6 +10,7 @@ from app import create_app
 from weekly_review import (
     WeeklyReviewConfigurationError,
     WeeklyReviewResponseError,
+    WeeklyReviewAPIError,
     create_anthropic_client,
     generate_weekly_review,
     load_weekly_review_api_key,
@@ -1076,6 +1077,74 @@ class BootstrapTests(unittest.TestCase):
             response = app.test_client().post(f"/suggestion/{suggestion_id}/reject")
             self.assertEqual(response.status_code, 400)
             self.assertIn("Suggestion is not pending.", response.get_data(as_text=True))
+
+    def test_generate_weekly_review_rejects_non_dict_json_payload(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            db_path = Path(tmp_dir) / "test_app.db"
+            create_app({"TESTING": True, "DATABASE": str(db_path)})
+
+            class FakeTextBlock:
+                def __init__(self, text: str):
+                    self.text = text
+
+            class FakeMessages:
+                def create(self, **kwargs):
+                    return type("Response", (), {"content": [FakeTextBlock(
+                        '["not", "a", "dict"]'
+                    )]})()
+
+            class FakeClient:
+                messages = FakeMessages()
+
+            with self.assertRaisesRegex(
+                WeeklyReviewResponseError,
+                "must be a JSON object",
+            ):
+                generate_weekly_review(
+                    database_path=str(db_path),
+                    client_factory=lambda: FakeClient(),
+                    run_day=date(2026, 1, 11),
+                )
+
+    def test_generate_weekly_review_wraps_api_failures(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            db_path = Path(tmp_dir) / "test_app.db"
+            create_app({"TESTING": True, "DATABASE": str(db_path)})
+
+            class FailingMessages:
+                def create(self, **kwargs):
+                    raise RuntimeError("connection reset")
+
+            class FailingClient:
+                messages = FailingMessages()
+
+            with self.assertRaisesRegex(WeeklyReviewAPIError, "connection reset"):
+                generate_weekly_review(
+                    database_path=str(db_path),
+                    client_factory=lambda: FailingClient(),
+                    run_day=date(2026, 1, 11),
+                )
+
+    def test_post_weekly_review_returns_502_when_api_call_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            db_path = Path(tmp_dir) / "test_app.db"
+
+            def failing_generator(*, database_path: str, client_factory):
+                raise WeeklyReviewAPIError(
+                    "Weekly review request to the AI provider failed: timeout"
+                )
+
+            app = create_app(
+                {
+                    "TESTING": True,
+                    "DATABASE": str(db_path),
+                    "WEEKLY_REVIEW_GENERATOR": failing_generator,
+                }
+            )
+            response = app.test_client().post("/weekly-review")
+
+            self.assertEqual(response.status_code, 502)
+            self.assertIn("timeout", response.get_data(as_text=True))
 
 
 if __name__ == "__main__":
