@@ -16,7 +16,7 @@
             <p>Goal target date: {{ goal_target_date }}</p>
             <p>Goal status: {{ goal_status }}</p>
             <div class="goal-actions">
-                <p><a href="{{ action }}">Edit goal</a></p>
+                <p><a href="{{ url_for('edit_goal', goal_id=goal_id) }}">Edit goal</a></p>
                 <form method="post" action="{{ url_for('run_weekly_review') }}">
                     <button type="submit">Run weekly review</button>
                 </form>
@@ -49,7 +49,7 @@
             </details>
         </section>
         {% endif %}
-        <p><a href="{{ url_for('new_entry') }}">Log today</a></p>
+        <p><a href="{{ url_for('new_entry', goal_id=goal_id) }}">Log today</a></p>
 
         <section class="activity-section" aria-label="Last 90 days heatmap">
             <h2>Activity</h2>

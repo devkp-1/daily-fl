@@ -17,6 +17,19 @@ from weekly_review import (
     generate_weekly_review,
 )
 
+PRIORITY_WEIGHTS = {"low": 1, "medium": 2, "high": 3}
+
+def weighted_engagement(entries: list[tuple[int, str]]) -> int:
+    """entries: (engagement, priority) pairs for one day. Given weights in dict, returns 
+        the weighted average intensity value for the overall day."""
+    if not entries:
+        return 0
+    total_weight = sum(PRIORITY_WEIGHTS[priority] for _, priority in entries)
+    weighted_sum = sum(
+        engagement * PRIORITY_WEIGHTS[priority] for engagement, priority in entries
+    )
+    return int(weighted_sum / total_weight + 0.5)
+
 
 def create_app(test_config: dict | None = None) -> Flask:
     app = Flask(__name__)
@@ -78,7 +91,7 @@ def create_app(test_config: dict | None = None) -> Flask:
             target_date_value = target_date_raw
 
         weekly_target_hours, hours_error = parse_hours(
-            form.get("weekly_target_hours", ""), "Weekly target hours", 168
+            form.get("weekly_target_hours", ""), 168, "Weekly target hours",
         )
         if hours_error:
             return None, hours_error
@@ -198,7 +211,7 @@ def create_app(test_config: dict | None = None) -> Flask:
             cursor = connection.execute(
                 """
                 INSERT INTO goal(title, description, target_date, status, priority, weekly_target_hours)
-                VALUES = (?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?)
                 """,
                 (title, description, target_date, status, priority, weekly_target_hours)
             )
@@ -224,7 +237,7 @@ def create_app(test_config: dict | None = None) -> Flask:
                 """
                 UPDATE goal
                 SET title = ?, description = ?, target_date = ?, status = ?, priority = ?, 
-                    weekly_target_hours. = ? updated_at = CURRENT_TIMESTAMP
+                    weekly_target_hours = ?, updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
                 """,
                 (title, description, target_date, status, priority, weekly_target_hours, goal_id)
@@ -233,50 +246,48 @@ def create_app(test_config: dict | None = None) -> Flask:
         finally:
             connection.close()
 
-    def get_heatmap_columns() -> list[list[dict[str, str | int | bool | list[str]]]]:
+    def get_entries_by_date(start: date, end: date, goal_id: int | None) ->  dict[str, list[tuple[int, str]]]:
+        """Given some filter, returns a dictionary of key:value pairs in which the key is 
+            the string-formatted date, and the value is a list of of (engagement, priority) tuples.
+            (Returns a dictionary mapping heatmap intensity values by date)
+               """
+
+        query = """
+            SELECT e.date, e.engagement, g.priority
+            FROM entry e
+            JOIN goal g ON g.id = e.goal_id
+            WHERE e.date BETWEEN ? AND ?
+        """
+        params: list = [start.isoformat(), end.isoformat()]
+        if goal_id is not None:
+            query += " AND e.goal_id = ?"
+            params.append(goal_id)
+        query += " ORDER BY e.date"
+
+        connection = sqlite3.connect(resolve_database_path())
+        connection.row_factory = sqlite3.Row
+        try:
+            rows = connection.execute(query, params).fetchall()
+        finally:
+            connection.close()
+
+        by_date: dict[str, list[tuple[int, str]]] = {}
+        for row in rows:
+            by_date.setdefault(str(row["date"]), []).append(
+                (int(row["engagement"]), str(row["priority"]))
+            )
+        return by_date
+        
+
+    def get_heatmap_columns(goal_id: int | None = None) -> list[list[dict[str, str | int | bool | list[str]]]]:
         today = date.today()
         last_90_start = today - timedelta(days=89)
 
         # 13 columns x 7 rows, Monday-start, anchored to the week containing today.
         current_week_monday = today - timedelta(days=today.weekday())
         grid_start = current_week_monday - timedelta(weeks=12)
-        connection = sqlite3.connect(resolve_database_path())
-        connection.row_factory = sqlite3.Row
-        try:
-            entry_rows = connection.execute(
-                """
-                SELECT id, date, notes, reflection, engagement
-                FROM entry
-                WHERE date BETWEEN ? AND ?
-                """,
-                (last_90_start.isoformat(), today.isoformat()),
-            ).fetchall()
-            tag_rows = connection.execute(
-                """
-                SELECT e.date, et.tag
-                FROM entry_tag et
-                JOIN entry e ON e.id = et.entry_id
-                WHERE e.date BETWEEN ? AND ?
-                ORDER BY et.tag
-                """,
-                (last_90_start.isoformat(), today.isoformat()),
-            ).fetchall()
-        finally:
-            connection.close()
 
-        entry_by_date: dict[str, dict[str, str | int | list[str]]] = {
-            str(row["date"]): {
-                "engagement": int(row["engagement"]),
-                "notes": str(row["notes"]),
-                "reflection": str(row["reflection"]),
-                "tags": [],
-            }
-            for row in entry_rows
-        }
-        for row in tag_rows:
-            day = str(row["date"])
-            if day in entry_by_date:
-                entry_by_date[day]["tags"].append(str(row["tag"]))
+        entries_by_date = get_entries_by_date(last_90_start, today, goal_id)
 
         columns: list[list[dict[str, str | int | bool | list[str]]]] = []
         for week_offset in range(13):
@@ -285,19 +296,17 @@ def create_app(test_config: dict | None = None) -> Flask:
             for day_offset in range(7):
                 day_value = week_start + timedelta(days=day_offset)
                 day_iso = day_value.isoformat()
-                in_last_90 = last_90_start <= day_value <= today
-                day_entry = entry_by_date.get(day_iso)
-                engagement = int(day_entry["engagement"]) if day_entry is not None and in_last_90 else 0
+                day_entries = entries_by_date.get(day_iso, [])
                 week_days.append(
                     {
                         "date": day_iso,
-                        "engagement": engagement,
-                        "in_last_90": in_last_90,
+                        "engagement": weighted_engagement(day_entries),
+                        "in_last_90": last_90_start <= day_value <= today,
                         "is_today": day_value == today,
-                        "notes": str(day_entry["notes"]) if day_entry is not None else "",
-                        "reflection": str(day_entry["reflection"]) if day_entry is not None else "",
-                        "tags": list(day_entry["tags"]) if day_entry is not None else [],
-                        "has_entry": day_entry is not None and in_last_90,
+                        "notes": "",
+                        "reflection": "",
+                        "tags": [],
+                        "has_entry": bool(day_entries),
                     }
                 )
             columns.append(week_days)
@@ -383,6 +392,7 @@ def create_app(test_config: dict | None = None) -> Flask:
             goal_description=goal["description"] or "",
             goal_target_date=goal["target_date"] or "",
             goal_status=goal["status"] or "active",
+            goal_id = goal["id"],
             heatmap_columns=get_heatmap_columns(),
             pending_suggestions=pending_suggestions,
             pending_suggestion_count=len(pending_suggestions),
@@ -498,7 +508,7 @@ def create_app(test_config: dict | None = None) -> Flask:
 
         if goal_id is None:
             return "Valid goal required.", 400
-        goal = get_goal_row("goal_id")
+        goal = get_goal_row(goal_id)
         if goal is None:
             return "Goal not found.", 404
 
@@ -587,25 +597,25 @@ def create_app(test_config: dict | None = None) -> Flask:
 
     @app.post("/entry/<entry_date>")
     def update_entry(entry_date: str):
-        goal_id = parse_goal_id(request.forms.get("goal_id"))
+        goal_id = parse_goal_id(request.form.get("goal_id"))
         if goal_id is None:
             return "A valid goal is required", 400
-        if get_goal_row(request.forms.get("goal_id")):
+        if get_goal_row(goal_id):
             return "Goal not found.", 404
         
         if entry_date != today_iso():
             return "Only today's entry can be edited.", 400
 
-        entry = get_entry_for_date(entry_date)
+        entry = get_entry_for_date(entry_date, goal_id)
         if entry is None:
-            return redirect(url_for("new_entry"), goal_id = goal_id)
+            return redirect(url_for(("new_entry"), goal_id = goal_id))
 
         notes = request.form.get("notes", "").strip()
         reflection = request.form.get("reflection", "").strip()
         engagement_raw = request.form.get("engagement", "").strip()
         submitted_tags = request.form.getlist("tags")
 
-        hours_spent, house_error = parse_hours(request.forms.get("hours_spent", ""), 24, "Hours spent")
+        hours_spent, house_error = parse_hours(request.form.get("hours_spent", ""), 24, "Hours spent")
         if house_error:
             return house_error, 400
 
