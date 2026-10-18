@@ -1,0 +1,39 @@
+    {% if pending_suggestion_count > 0 %}
+    <section class="pending-suggestions" aria-label="Pending suggestions">
+        <p>
+            <strong id="pending-suggestion-indicator">
+                Pending suggestions: {{ pending_suggestion_count }}
+            </strong>
+        </p>
+        <details>
+            <summary>Review pending suggestions</summary>
+            <ul>
+                {% for suggestion in pending_suggestions %}
+                <li class="pending-suggestion-item">
+                    <p>{{ suggestion.text }}</p>
+                    <div class="suggestion-actions">
+                        <form method="post" action="/suggestion/{{ suggestion.id }}/accept">
+                            <button type="submit">Accept ✓</button>
+                        </form>
+                        <form method="post" action="/suggestion/{{ suggestion.id }}/reject">
+                            <button type="submit">Reject ✗</button>
+                        </form>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+        </details>
+    </section>
+    {% endif %}
+
+    {% if accepted_suggestions %}
+    <section class="accepted-suggestions" aria-label="Accepted suggestions history"></section>
+    <details>
+        <summary>Accepted suggestions history ({{ accepted_suggestions|length }})</summary>
+        <ul>
+            {% for suggestion in accepted_suggestions %}
+            <li>{{ suggestion.text }}</li>
+            {% endfor %}
+        </ul>
+    </details>
+    {% endif %}

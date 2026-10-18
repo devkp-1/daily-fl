@@ -8,49 +8,52 @@
 </head>
 <body>
     <main>
-        <h1>Personal Productivity Loop</h1>
-        <section class="goal-card" aria-label="Current goal summary">
-            <h2>Current Goal</h2>
-            <p>Goal title: {{ goal_title }}</p>
-            <p>Goal description: {{ goal_description }}</p>
-            <p>Goal target date: {{ goal_target_date }}</p>
-            <p>Goal status: {{ goal_status }}</p>
-            <div class="goal-actions">
-                <p><a href="{{ url_for('edit_goal', goal_id=goal_id) }}">Edit goal</a></p>
+         <!-- First Panel includes Date and "quick tabs" or bookmarks -->
+        <section class="hero-strip" aria-label="Today summary">
+            <div class="hero-today">
+                <span class="hero-today-label">Today</span>
+                <!-- You can pass a `today_display` variable from your app.py route, 
+                    or display a quick prompt/unstarted status here -->
+                <span class="hero-today-date">Ready for today's logs</span>
+            </div>
+            <div class="hero-actions">
+                <!-- Quick links to log today's entries for goals that haven't been logged yet -->
+                <p class="hero-hint">Select a goal below or jump straight into today's tracking.</p>
+            </div>
+        </section>
+
+         <!-- Goal View -->
+        <section class="goals-panel" id="goals-panel" aria-label="Goals">
+            <div class="panel-header">
+                <h2>Goals</h2>
+            </div>
+            <div class="goal-list">
+                {% for goal in goals %}
+                <article class="goal-card">
+                    <div class="goal-name">{{ goal.title or "Untitled" }}</div>
+                    <div class="goal-tags">
+                        <span class="tag tag-priority-{{ goal.priority }}">{{ goal.priority }}</span>
+                        <span class="tag tag-status tag-status-{{ goal.status }}">{{ goal.status }}</span>
+                    </div>
+                    <div class="goal-actions">
+                        <a class="btn" href="{{ url_for('edit_goal', goal_id=goal.id) }}">Edit</a>
+                    </div>
+                </article>
+                {% endfor %}
+            </div>
+        </section>
+
+         <!-- Weekly Review -->
+        <section class="panel review-panel" aria-label="Weekly review">
+            <div class="panel-header">
+                <h2>Weekly review</h2>
                 <form method="post" action="{{ url_for('run_weekly_review') }}">
-                    <button type="submit">Run weekly review</button>
+                    <button type="submit" class="btn btn-accent">Run weekly review</button>
                 </form>
             </div>
         </section>
-        {% if pending_suggestion_count > 0 %}
-        <section class="pending-suggestions" aria-label="Pending suggestions">
-            <p>
-                <strong id="pending-suggestion-indicator">
-                    Pending suggestions: {{ pending_suggestion_count }}
-                </strong>
-            </p>
-            <details>
-                <summary>Review pending suggestions</summary>
-                <ul>
-                    {% for suggestion in pending_suggestions %}
-                    <li class="pending-suggestion-item">
-                        <p>{{ suggestion.text }}</p>
-                        <div class="suggestion-actions">
-                            <form method="post" action="/suggestion/{{ suggestion.id }}/accept">
-                                <button type="submit">Accept ✓</button>
-                            </form>
-                            <form method="post" action="/suggestion/{{ suggestion.id }}/reject">
-                                <button type="submit">Reject ✗</button>
-                            </form>
-                        </div>
-                    </li>
-                    {% endfor %}
-                </ul>
-            </details>
-        </section>
-        {% endif %}
-        <p><a href="{{ url_for('new_entry', goal_id=goal_id) }}">Log today</a></p>
 
+         <!-- Activity Section -->
         <section class="activity-section" aria-label="Last 90 days heatmap">
             <h2>Activity</h2>
             <p class="section-subtitle">Last 90 days</p>
@@ -84,27 +87,17 @@
                 </div>
                 {% endfor %}
             </div>
+            <!-- Logged Entry for Selected Day-->
             <section id="day-details" class="day-details" aria-live="polite">
-                <h3 id="day-details-date">Select a filled day</h3>
+                <h3 id="day-details-date">Select day, logged entries show up here!</h3>
                 <p><strong>Engagement:</strong> <span id="day-details-engagement">—</span></p>
                 <p><strong>Notes:</strong> <span id="day-details-notes">—</span></p>
                 <p><strong>Reflection:</strong> <span id="day-details-reflection">—</span></p>
                 <p><strong>Tags:</strong> <span id="day-details-tags">—</span></p>
             </section>
         </section>
-        {% if accepted_suggestions %}
-        <section class="accepted-suggestions" aria-label="Accepted suggestions history">
-            <details>
-                <summary>Accepted suggestions history ({{ accepted_suggestions|length }})</summary>
-                <ul>
-                    {% for suggestion in accepted_suggestions %}
-                    <li>{{ suggestion.text }}</li>
-                    {% endfor %}
-                </ul>
-            </details>
-        </section>
-        {% endif %}
     </main>
+
     <script>
         (() => {
             const dateEl = document.getElementById("day-details-date");

@@ -3,6 +3,7 @@ import secrets
 import uuid
 from pathlib import Path
 import sqlite3
+import re
 from datetime import date, timedelta
 
 from flask import Flask, redirect, render_template, request, session, url_for
@@ -68,6 +69,20 @@ def create_app(test_config: dict | None = None) -> Flask:
         except ValueError:
             return None
 
+    def parse_goal_ids(raw_ids: list[str]) -> list[int] | None:
+        """Takes repeated goal_id values, returns None if any is syntax errors, dropping
+        duplicates and keeping order."""
+        parsed = []
+        seen = set()
+        for raw in raw_ids:
+            goal_id = parse_goal_id(raw)
+            if goal_id is None:
+                return None
+            if goal_id not in seen:
+                seen.add(goal_id)
+                parsed.append(goal_id)
+        return parsed
+
     def parse_goal_form(form) -> tuple[dict | None, str | None]:
         title = form.get("title", "").strip()
         if not title:
@@ -109,7 +124,7 @@ def create_app(test_config: dict | None = None) -> Flask:
 
     def parse_hours(raw: str, max: float, id: str) -> tuple[float | None, str | None]:
         """Parses user input for request forms. Empty input would be valid i.e. not provided, 
-            otherwise return (valid input, No error)"""
+        otherwise return (valid input, No error)"""
         raw = raw.strip()
         if not raw:
             return None, None
@@ -120,6 +135,12 @@ def create_app(test_config: dict | None = None) -> Flask:
         if not 0 <= hours <= max:
             return None, f"{id} must be a number between 0 and {max}."
         return hours, None
+
+    def slugify(title: str) -> str:
+        if not title:
+            return "goal"
+        slug = re.sub(r'[^a-zA-Z0-9]+', '-', title.lower()).strip('-')
+        return slug or "goal"
 
 
     def today_iso() -> str:
@@ -246,7 +267,7 @@ def create_app(test_config: dict | None = None) -> Flask:
         finally:
             connection.close()
 
-    def get_entries_by_date(start: date, end: date, goal_id: int | None) ->  dict[str, list[tuple[int, str]]]:
+    def get_entries_by_date(start: date, end: date, goal_ids: list[int] | None) ->  dict[str, list[tuple[int, str]]]:
         """Given some filter, returns a dictionary of key:value pairs in which the key is 
             the string-formatted date, and the value is a list of of (engagement, priority) tuples.
             (Returns a dictionary mapping heatmap intensity values by date)
@@ -259,9 +280,10 @@ def create_app(test_config: dict | None = None) -> Flask:
             WHERE e.date BETWEEN ? AND ?
         """
         params: list = [start.isoformat(), end.isoformat()]
-        if goal_id is not None:
-            query += " AND e.goal_id = ?"
-            params.append(goal_id)
+        if goal_ids:
+            placeholders = ",".join("?" * len(goal_ids))
+            query += f" AND e.goal_id IN ({placeholders})"
+            params.extend(goal_ids)
         query += " ORDER BY e.date"
 
         connection = sqlite3.connect(resolve_database_path())
@@ -279,7 +301,7 @@ def create_app(test_config: dict | None = None) -> Flask:
         return by_date
         
 
-    def get_heatmap_columns(goal_id: int | None = None) -> list[list[dict[str, str | int | bool | list[str]]]]:
+    def get_heatmap_columns(goal_ids: list[int] | None = None) -> list[list[dict[str, str | int | bool | list[str]]]]:
         today = date.today()
         last_90_start = today - timedelta(days=89)
 
@@ -287,7 +309,7 @@ def create_app(test_config: dict | None = None) -> Flask:
         current_week_monday = today - timedelta(days=today.weekday())
         grid_start = current_week_monday - timedelta(weeks=12)
 
-        entries_by_date = get_entries_by_date(last_90_start, today, goal_id)
+        entries_by_date = get_entries_by_date(last_90_start, today, goal_ids)
 
         columns: list[list[dict[str, str | int | bool | list[str]]]] = []
         for week_offset in range(13):
@@ -382,18 +404,41 @@ def create_app(test_config: dict | None = None) -> Flask:
 
     @app.get("/")
     def dashboard() -> str:
+        """
+        Renders the main productivity dashboard UI. The default view ('/') shows aggregated 
+        activity across all goals when no parameters are provided. The filteredvView 
+        ('/?goal_id=1&goal_id=2') filters the heatmap columns for the specified subset of goal IDs.
+    
+        - 400 response if any provided goal ID has invalid syntax.
+        - 404 response if any requested goal ID does not exist in the database.
+        - 302 redirect to '/' if all goals are explicitly selected.
+        """
         goals = get_all_goals()
-        goal = goals[0]
+        raw_goal_ids = request.args.getlist("goal_id")
+        if raw_goal_ids:
+            selected_goal_ids = parse_goal_ids(raw_goal_ids)
+            if selected_goal_ids is None:
+                return "Invalid goal", 400
+            if not set(selected_goal_ids) <= {g["id"] for g in goals}:
+                return "Goal not found.", 404
+            if (len(selected_goal_ids) == len(goals)):
+                return redirect(url_for("dashboard"))
+        else:
+            selected_goal_ids = [g["id"] for g in goals]
+        all_selected = (len(selected_goal_ids) == len(goals))
+        for g in goals:
+            g["slug"] = slugify(g["title"])
+
         pending_suggestions = get_pending_suggestions()
         accepted_suggestions = get_accepted_suggestions()
+
         return render_template(
             "dashboard.html",
-            goal_title=goal["title"] or "",
-            goal_description=goal["description"] or "",
-            goal_target_date=goal["target_date"] or "",
-            goal_status=goal["status"] or "active",
-            goal_id = goal["id"],
-            heatmap_columns=get_heatmap_columns(),
+            goals=goals,
+            selected_goal_ids=selected_goal_ids,
+            selected_count=len(selected_goal_ids),
+            all_selected=all_selected,
+            heatmap_columns=get_heatmap_columns(None if all_selected else selected_goal_ids),
             pending_suggestions=pending_suggestions,
             pending_suggestion_count=len(pending_suggestions),
             accepted_suggestions=accepted_suggestions,
@@ -600,7 +645,7 @@ def create_app(test_config: dict | None = None) -> Flask:
         goal_id = parse_goal_id(request.form.get("goal_id"))
         if goal_id is None:
             return "A valid goal is required", 400
-        if get_goal_row(goal_id):
+        if get_goal_row(goal_id) is None:
             return "Goal not found.", 404
         
         if entry_date != today_iso():
